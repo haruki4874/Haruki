@@ -1,0 +1,3634 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>團結小隊_電子地圖 - 多功能互動地圖系統</title>
+    <meta name="description" content="團結小隊電子地圖系統，支援多種地圖切換、地點標記、路徑繪製和資料導出功能">
+    <meta name="keywords" content="電子地圖, 地圖系統, 路徑規劃, 地點標記, 團結小隊">
+    <meta name="author" content="團結小隊 - Haruki.N">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://unity-team-map.netlify.app/">
+    <meta property="og:title" content="團結小隊電子地圖系統">
+    <meta property="og:description" content="多功能互動電子地圖系統，支援多種地圖類型、地點管理和路徑規劃">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://unity-team-map.netlify.app/">
+    <meta property="twitter:title" content="團結小隊電子地圖系統">
+    <meta property="twitter:description" content="多功能互動電子地圖系統，支援多種地圖類型、地點管理和路徑規劃">
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1">
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- LZ-String Compression Library -->
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Segoe+UI:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Google Maps API (僅在需要時加載) -->
+    <script>
+      function loadGoogleMaps() {
+        const script = document.createElement('script');
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initGoogleMap';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    </script>
+    
+    <style>
+        /* ==================== 精簡版CSS變數定義 ==================== */
+        :root {
+            /* 主色調 */
+            --primary-color: #392682;
+            --secondary-color: #75A3C9;
+            --accent-color: #3498db;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --purple-color: #9b59b6;
+            
+            /* 中性色 */
+            --light-bg: #f5f7fa;
+            --dark-text: #2c3e50;
+            --medium-text: #555;
+            --light-text: #7f8c8d;
+            --border-color: #e0e0e0;
+            --card-bg: #ffffff;
+            --hover-bg: #f8f9fa;
+            
+            /* 尺寸變數 */
+            --border-radius: 10px;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --hover-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --transition-speed: 0.3s;
+            
+            /* 字體 */
+            --font-main: 'Segoe UI', 'Noto Sans TC', sans-serif;
+            --font-mono: 'Courier New', monospace;
+        }
+        
+        /* ==================== 基礎樣式重置 ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-main);
+            background: linear-gradient(135deg, var(--light-bg) 0%, #e3f2fd 100%);
+            color: var(--dark-text);
+            min-height: 100vh;
+            line-height: 1.6;
+            transition: background 0.5s ease;
+        }
+        
+        /* ==================== 容器與佈局 ==================== */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all var(--transition-speed) ease;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            min-height: 650px;
+        }
+        
+        /* ==================== 地圖區域 ==================== */
+        .map-section {
+            flex: 3;
+            min-width: 300px;
+            padding: 20px;
+            position: relative;
+        }
+        
+        #map {
+            height: 650px;
+            width: 100%;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            z-index: 1;
+            border: 1px solid var(--border-color);
+        }
+        
+        .map-controls {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* ==================== 資訊區域 ==================== */
+        .info-section {
+            flex: 2;
+            min-width: 300px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+            overflow-x: auto;
+        }
+        
+        .tab-container::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--light-text);
+            border-bottom: 3px solid transparent;
+            transition: all var(--transition-speed);
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        
+        .tab.active {
+            color: var(--accent-color);
+            border-bottom: 3px solid var(--accent-color);
+        }
+        
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 490px;
+            padding-right: 5px;
+        }
+        
+        .tab-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .tab-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .tab-content::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .tab-pane {
+            display: none;
+        }
+        
+        .tab-pane.active {
+            display: block;
+        }
+        
+        /* ==================== 地點卡片 ==================== */
+        .location-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: var(--card-shadow);
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .location-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--hover-shadow);
+        }
+        
+        .location-card.active {
+            border-left-color: var(--accent-color);
+            background-color: #f0f8ff;
+        }
+        
+        .location-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        
+        .location-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--dark-text);
+            line-height: 1.3;
+        }
+        
+        .location-date {
+            font-size: 12px;
+            color: var(--light-text);
+            background: var(--hover-bg);
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        
+        .location-img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin: 12px 0;
+            border: 1px solid var(--border-color);
+            transition: transform var(--transition-speed);
+        }
+        
+        .location-card:hover .location-img {
+            transform: scale(1.02);
+        }
+        
+       .location-desc {
+    color: var(--medium-text);
+    line-height: 1.5;
+    font-size: 14px;
+    margin-bottom: 8px;
+    
+    /* 標準屬性 - 現代瀏覽器 */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    
+    /* Firefox 兼容性 */
+    display: -moz-box;
+    -moz-line-clamp: 3;
+    -moz-box-orient: vertical;
+    
+    /* IE/Edge 舊版兼容性 */
+    display: -ms-flexbox;
+    -ms-line-clamp: 3;
+    -ms-box-orient: vertical;
+    
+    /* 標準屬性 */
+    display: flex;
+    line-clamp: 3;
+    box-orient: vertical;
+    
+    /* 通用屬性 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    
+    /* 備用方案：使用 max-height 和漸變遮罩 */
+    max-height: 4.5em; /* 3行 * 1.5行高 */
+}
+
+/* 對於不支援 line-clamp 的瀏覽器，提供備用樣式 */
+@supports not ((-webkit-line-clamp: 3) or (line-clamp: 3)) {
+    .location-desc {
+        position: relative;
+        max-height: 4.5em;
+        overflow: hidden;
+    }
+    
+    .location-desc::after {
+        content: '...';
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        padding-left: 8px;
+        background: linear-gradient(to right, transparent, var(--card-bg) 50%);
+    }
+}
+
+/* 確保卡片內圖片不會影響佈局 */
+.location-card {
+    position: relative;
+    overflow: hidden;
+}
+
+/* 修正其他可能的多行文本截斷問題 */
+.timeline-content,
+.member-tasks,
+.project-desc {
+    /* 標準屬性 */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    
+    /* Firefox 兼容性 */
+    display: -moz-box;
+    -moz-line-clamp: 2;
+    -moz-box-orient: vertical;
+    
+    /* IE/Edge 舊版兼容性 */
+    display: -ms-flexbox;
+    -ms-line-clamp: 2;
+    -ms-box-orient: vertical;
+    
+    /* 標準屬性 */
+    display: flex;
+    line-clamp: 2;
+    box-orient: vertical;
+    
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 單行文本截斷 */
+.location-name,
+.provider-name,
+.timeline-date {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* 響應式設計中的多行文本處理 */
+@media (max-width: 768px) {
+    .location-desc {
+        /* 移動端減少顯示行數 */
+        -webkit-line-clamp: 2;
+        -moz-line-clamp: 2;
+        -ms-line-clamp: 2;
+        line-clamp: 2;
+        max-height: 3em;
+    }
+    
+    .member-tasks,
+    .project-desc {
+        -webkit-line-clamp: 1;
+        -moz-line-clamp: 1;
+        -ms-line-clamp: 1;
+        line-clamp: 1;
+        max-height: 1.5em;
+    }
+}
+
+/* 打印樣式 */
+@media print {
+    .location-desc {
+        /* 打印時顯示全部內容 */
+        -webkit-line-clamp: unset;
+        -moz-line-clamp: unset;
+        -ms-line-clamp: unset;
+        line-clamp: unset;
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+/* 為舊版瀏覽器添加備用方案 */
+.no-lineclamp .location-desc {
+    position: relative;
+    max-height: 4.5em;
+    overflow: hidden;
+}
+
+.no-lineclamp .location-desc::after {
+    content: '...';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    padding-left: 8px;
+    background: linear-gradient(to right, transparent, var(--card-bg) 50%);
+}
+        
+        .location-coords {
+            font-size: 12px;
+            color: var(--light-text);
+            font-family: var(--font-mono);
+            background: var(--hover-bg);
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+        
+        .card-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all var(--transition-speed);
+        }
+        
+        .edit-btn {
+            background-color: var(--accent-color);
+            color: white;
+        }
+        
+        .edit-btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .delete-btn {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .delete-btn:hover {
+            background-color: #c0392b;
+            transform: translateY(-2px);
+        }
+        
+        /* ==================== 搜尋框 ==================== */
+        .search-box {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 14px 20px 14px 45px;
+            border: 2px solid var(--border-color);
+            border-radius: 50px;
+            font-size: 14px;
+            transition: all var(--transition-speed);
+            background: var(--card-bg);
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            color: var(--light-text);
+        }
+        
+        /* ==================== 按鈕樣式 ==================== */
+        .btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--accent-color), #2980b9);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all var(--transition-speed) ease;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        
+        .btn-reset {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+        }
+        
+        .btn-path {
+            background: linear-gradient(135deg, var(--success-color), #27ae60);
+        }
+        
+        .btn-cancel {
+            background: linear-gradient(135deg, var(--danger-color), #c0392b);
+        }
+        
+        .btn-picker {
+            background: linear-gradient(135deg, var(--purple-color), #8e44ad);
+        }
+        
+        .btn-export {
+            background: linear-gradient(135deg, #1abc9c, #16a085);
+        }
+        
+        .btn-arrow {
+            background: linear-gradient(135deg, #e67e22, #d35400);
+        }
+        
+        /* ==================== 控制面板 ==================== */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background-color: #f8fafc;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        /* ==================== 地圖提供商卡片 ==================== */
+        .map-providers {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .provider-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            border: 2px solid transparent;
+            text-align: center;
+        }
+        
+        .provider-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--hover-shadow);
+        }
+        
+        .provider-card.active {
+            border-color: var(--accent-color);
+            background-color: #f0f8ff;
+        }
+        
+        .provider-name {
+            font-weight: 700;
+            color: var(--dark-text);
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        
+        .provider-desc {
+            font-size: 13px;
+            color: var(--light-text);
+            line-height: 1.4;
+        }
+        
+        /* ==================== 頁腳 ==================== */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--light-text);
+            font-size: 14px;
+            border-top: 1px solid var(--border-color);
+            background: #f8fafc;
+        }
+        
+        /* ==================== 路徑預覽面板 ==================== */
+        .path-preview-panel {
+            position: absolute;
+            top: 100px;
+            right: 30px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            max-width: 300px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(52, 152, 219, 0.1);
+            display: none;
+        }
+        
+        .path-preview-title {
+            font-weight: bold;
+            color: var(--dark-text);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        /* ==================== 快捷操作面板 ==================== */
+        .quick-actions-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .quick-action-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--dark-text);
+            transition: all 0.3s;
+        }
+        
+        .quick-action-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .quick-action-btn.active {
+            background: var(--accent-color);
+            color: white;
+        }
+        
+        /* ==================== 響應式設計 ==================== */
+        @media (max-width: 1024px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .info-section {
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+            }
+            
+            .map-section {
+                min-height: 500px;
+            }
+            
+            #map {
+                height: 500px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                border-radius: 0;
+                margin: 0;
+            }
+            
+            body {
+                padding: 0;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            .map-controls {
+                position: relative;
+                top: 0;
+                right: 0;
+                margin-bottom: 20px;
+                flex-direction: row;
+                flex-wrap: wrap;
+                background: transparent;
+                box-shadow: none;
+                padding: 0;
+            }
+            
+            .map-type-selector, .coordinate-picker-toggle {
+                flex: 1;
+                min-width: 200px;
+            }
+            
+            .tab-container {
+                justify-content: flex-start;
+            }
+            
+            .tab {
+                padding: 10px 15px;
+                font-size: 13px;
+            }
+            
+            .controls {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .map-controls {
+                flex-direction: column;
+            }
+            
+            .map-type-selector, .coordinate-picker-toggle {
+                width: 100%;
+            }
+            
+            .card-actions {
+                flex-direction: column;
+            }
+            
+            .action-btn {
+                width: 100%;
+            }
+            
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* ==================== 動畫效果 ==================== */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* ==================== 表單樣式 ==================== */
+        .add-form {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark-text);
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all var(--transition-speed);
+            background: var(--card-bg);
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+        
+        .coord-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .coord-picker-info {
+            font-size: 13px;
+            color: var(--light-text);
+            margin-top: 8px;
+            padding: 12px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            border-left: 3px solid var(--accent-color);
+        }
+        
+        /* ==================== 團隊成員樣式 ==================== */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .team-member {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .team-member:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .member-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            background: linear-gradient(to right, #3498db, #2980b9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .member-name {
+            font-weight: bold;
+            color: var(--dark-text);
+            margin-bottom: 5px;
+            font-size: 1rem;
+        }
+        
+        .member-role {
+            font-size: 0.85rem;
+            color: #3498db;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .member-tasks {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            line-height: 1.4;
+        }
+        
+        /* ==================== 教學面板 ==================== */
+        .tutorial-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 10001;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .tutorial-header {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .tutorial-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .tutorial-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.8rem;
+            cursor: pointer;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: none;
+        }
+        
+        /* ==================== 導出選項面板 ==================== */
+        .export-options {
+            display: none;
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            z-index: 1001;
+            min-width: 200px;
+        }
+        
+        .export-options.show {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .export-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .export-option:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .export-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #3498db;
+        }
+        
+        /* ==================== 自定義地圖標記 ==================== */
+        .custom-marker {
+            background-color: var(--accent-color);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 12px;
+            transition: all var(--transition-speed);
+        }
+        
+        .custom-marker:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* ==================== 座標拾取器 ==================== */
+        .picker-marker {
+            background-color: var(--purple-color);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 15px rgba(155, 89, 182, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            z-index: 1001;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .picker-mode-active #map {
+            cursor: crosshair;
+            box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.3);
+            border-color: var(--purple-color);
+        }
+        
+        .coordinate-notification {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(155, 89, 182, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            z-index: 1000;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            display: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+        
+        /* ==================== 資訊卡片樣式 ==================== */
+        .info-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            border-left: 5px solid #3498db;
+            transition: all 0.3s ease;
+        }
+        
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .info-card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: var(--dark-text);
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        
+        .info-card-title i {
+            color: #3498db;
+            font-size: 1.2rem;
+        }
+        
+        .info-card-content {
+            color: #555;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        
+        /* ==================== 空狀態樣式 ==================== */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--light-text);
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #ddd;
+        }
+        
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: var(--medium-text);
+        }
+        
+        /* ==================== 加載狀態 ==================== */
+        .loading {
+            position: relative;
+            pointer-events: none;
+        }
+        
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        /* ==================== 下拉選單樣式 ==================== */
+        select {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            background: var(--card-bg);
+            color: var(--dark-text);
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        /* ==================== 座標拾取器開關 ==================== */
+        .coordinate-picker-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        
+        .coordinate-picker-toggle input[type="checkbox"] {
+            width: 40px;
+            height: 20px;
+            appearance: none;
+            background: #ddd;
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+        
+        .coordinate-picker-toggle input[type="checkbox"]:checked {
+            background: var(--accent-color);
+        }
+        
+        .coordinate-picker-toggle input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            top: 2px;
+            left: 2px;
+            transition: all var(--transition-speed);
+        }
+        
+        .coordinate-picker-toggle input[type="checkbox"]:checked::before {
+            left: 22px;
+        }
+    </style>
+</head>
+<body class="theme-light-active">
+    <div class="container">
+        <header>
+            <h1 id="app-title">團結小隊_電子地圖</h1>
+            <p class="subtitle" id="app-subtitle">支援多種地圖切換，可自訂地點、圖片和文字描述</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="map-section">
+                <div id="map"></div>
+                
+                <div class="coordinate-notification" id="coordinateNotification">
+                    已選取座標，已填入表單
+                </div>
+                
+                <!-- 路徑預覽面板 -->
+                <div class="path-preview-panel" id="pathPreviewPanel">
+                    <div class="path-preview-title">
+                        <span>路徑預覽</span>
+                        <button class="map-info-close" onclick="togglePathPreviewPanel()">×</button>
+                    </div>
+                    <div class="path-preview-stats" id="pathPreviewStats">
+                        <!-- 將由JavaScript動態生成 -->
+                    </div>
+                    <div class="batch-actions" id="pathBatchActions">
+                        <button class="btn-batch btn-batch-add" onclick="addAllLocationsToPath()" id="btn-batch-add">加入全部地點</button>
+                        <button class="btn-batch btn-batch-reverse" onclick="reversePath()" id="btn-batch-reverse">反轉路徑</button>
+                        <button class="btn-batch btn-batch-clear" onclick="clearDrawing()" id="btn-batch-clear">清除路徑</button>
+                    </div>
+                </div>
+                
+                <!-- 快捷操作面板 -->
+                <div class="quick-actions-panel">
+                    <button class="quick-action-btn" onclick="togglePathPreviewPanel()" id="quick-path-preview" title="路徑預覽">
+                        <i class="fas fa-route"></i>
+                    </button>
+                    <button class="quick-action-btn" onclick="toggleExportOptions()" id="quick-export" title="導出選項">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="quick-action-btn" onclick="toggleDrawingMode()" id="quick-drawing" title="繪製模式">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
+                </div>
+                
+                <!-- 導出選項面板 -->
+                <div class="export-options" id="exportOptions">
+                    <div class="export-option" onclick="exportPathData('gpx')">
+                        <div class="export-icon">
+                            <i class="fas fa-file-code"></i>
+                        </div>
+                        <div class="export-info">
+                            <div class="export-name" id="export-gpx-name">GPX 格式</div>
+                            <div class="export-desc" id="export-gpx-desc">通用GPS交換格式</div>
+                        </div>
+                    </div>
+                    <div class="export-option" onclick="exportPathData('kml')">
+                        <div class="export-icon">
+                            <i class="fas fa-globe-americas"></i>
+                        </div>
+                        <div class="export-info">
+                            <div class="export-name" id="export-kml-name">KML 格式</div>
+                            <div class="export-desc" id="export-kml-desc">Google Earth格式</div>
+                        </div>
+                    </div>
+                    <div class="export-option" onclick="exportPathData('geojson')">
+                        <div class="export-icon">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <div class="export-info">
+                            <div class="export-name" id="export-geojson-name">GeoJSON 格式</div>
+                            <div class="export-desc" id="export-geojson-desc">Web地圖常用格式</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="map-controls">
+                    <div class="map-type-selector">
+                        <select id="mapType" onchange="changeMapType(this.value)">
+                            <option value="osm">OpenStreetMap 標準</option>
+                            <option value="osmHot">OpenStreetMap H.O.T.</option>
+                            <option value="osmCycle">OpenStreetMap 單車地圖</option>
+                            <option value="osmTransport">OpenStreetMap 交通地圖</option>
+                            <option value="cartoVoyager">CartoDB Voyager</option>
+                            <option value="cartoDark">CartoDB 深色</option>
+                            <option value="esriWorld">ESRI 世界地圖</option>
+                            <option value="stadia">Stadia 地圖</option>
+                            <option value="opentopomap">OpenTopoMap</option>
+                            <option value="wikimedia">Wikimedia 地圖</option>
+                        </select>
+                    </div>
+                    
+                    <div class="coordinate-picker-toggle">
+                        <label for="coordinatePickerToggle" id="picker-label">座標拾取器</label>
+                        <input type="checkbox" id="coordinatePickerToggle" onchange="toggleCoordinatePicker()">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <div class="tab-container">
+                    <button class="tab active" onclick="switchTab('locations')" id="tab-locations">地點清單</button>
+                    <button class="tab" onclick="switchTab('add')" id="tab-add">新增地點</button>
+                    <button class="tab" onclick="switchTab('maps')" id="tab-maps">地圖選擇</button>
+                    <button class="tab" onclick="switchTab('team')" id="tab-team">分工名單</button>
+                    <button class="tab" onclick="switchTab('info')" id="tab-info">系統資訊</button>
+                </div>
+                
+                <div class="tab-content">
+                    <!-- 地點清單頁籤 -->
+                    <div id="locations-tab" class="tab-pane active">
+                        <div class="search-box">
+                            <input type="text" id="locationSearch" placeholder="搜尋地點..." onkeyup="searchLocations()">
+                        </div>
+                        <div class="location-list" id="locationList">
+                            <!-- 地點卡片將動態生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 新增地點頁籤 -->
+                    <div id="add-tab" class="tab-pane">
+                        <h3 class="mb-20" id="add-title">新增地點</h3>
+                        
+                        <div class="add-form">
+                            <form id="locationForm">
+                                <div class="form-group">
+                                    <label for="name" id="label-name">地點名稱 *</label>
+                                    <input type="text" id="name" required placeholder="例如: 澳門旅遊塔">
+                                </div>
+                                
+                                <div class="coord-inputs">
+                                    <div class="form-group">
+                                        <label for="lat" id="label-lat">緯度 (Latitude) *</label>
+                                        <input type="number" step="any" id="lat" required placeholder="例如: 22.1987">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="lng" id="label-lng">經度 (Longitude) *</label>
+                                        <input type="number" step="any" id="lng" required placeholder="例如: 113.5439">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <div class="coord-picker-info" id="coordPickerInfo">
+                                        點擊上方「座標拾取器」開關，然後點擊地圖上的位置來獲取座標
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="date" id="label-date">造訪日期</label>
+                                    <input type="date" id="date" value="">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="image" id="label-image">圖片網址</label>
+                                    <input type="text" id="image" placeholder="請輸入圖片網址">
+                                    <p class="mt-10" id="image-hint">
+                                        可使用 Unsplash 圖片: https://images.unsplash.com/photo-...
+                                    </p>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="description" id="label-description">地點描述</label>
+                                    <textarea id="description" placeholder="請描述這個地點..."></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="color" id="label-color">標記顏色</label>
+                                    <input type="color" id="color" value="#3498db" class="color-picker">
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button type="button" class="btn" id="btn-submit" onclick="addLocation()">新增地點</button>
+                                    <button type="button" class="btn btn-cancel" onclick="clearForm()" id="btn-clear">清除表單</button>
+                                    <button type="button" class="btn btn-picker" onclick="useCoordinatePicker()" id="btn-picker">使用座標拾取器</button>
+                                </div>
+                            </form>
+                            
+                            <!-- 路徑繪製功能 -->
+                            <div class="mt-20 pt-15" style="border-top: 1px solid #eee;">
+                                <h4 class="mb-10" id="drawing-title">
+                                    路徑繪製工具
+                                    <button class="guide-help-btn" onclick="showTutorial()" title="顯示教學">?</button>
+                                </h4>
+                                <p class="mb-10" id="drawing-desc">
+                                    點擊「開始繪製」按鈕，然後在地圖上點擊或從地點清單中添加點來繪製自定義路徑
+                                </p>
+                                
+                                <div class="drawing-controls" id="drawingControls">
+                                    <button class="btn" id="btn-start-drawing" onclick="startDrawing()">開始繪製</button>
+                                    <button class="btn" id="btn-finish-drawing" onclick="finishDrawing()">完成繪製</button>
+                                    <button class="btn" id="btn-convert-points" onclick="convertDrawingPointsToLocations()">轉換為地點</button>
+                                    <button class="btn btn-cancel" id="btn-clear-drawing" onclick="clearDrawing()">清除</button>
+                                </div>
+                                
+                                <!-- 繪製點列表 -->
+                                <div class="drawing-point-list" id="drawingPointList">
+                                    <!-- 繪製點將動態生成 -->
+                                </div>
+                                
+                                <!-- 導出按鈕 -->
+                                <div class="export-buttons mt-15">
+                                    <button class="btn btn-export" onclick="exportPathData('gpx')" id="btn-export-gpx">導出GPX</button>
+                                    <button class="btn btn-export" onclick="exportPathData('kml')" id="btn-export-kml">導出KML</button>
+                                    <button class="btn btn-export" onclick="exportPathData('geojson')" id="btn-export-geojson">導出GeoJSON</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 地圖選擇頁籤 -->
+                    <div id="maps-tab" class="tab-pane">
+                        <h3 class="mb-15" id="maps-title">選擇地圖類型</h3>
+                        <p class="mb-15" id="maps-desc">
+                            點擊下方的地圖提供者切換不同風格的地圖
+                        </p>
+                        
+                        <div class="map-providers">
+                            <div class="provider-card active" onclick="selectMapProvider('osm')">
+                                <div class="provider-name">OpenStreetMap</div>
+                                <div class="provider-desc">標準街道地圖</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('osmHot')">
+                                <div class="provider-name">OSM H.O.T.</div>
+                                <div class="provider-desc">人道主義地圖</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('osmCycle')">
+                                <div class="provider-name">單車地圖</div>
+                                <div class="provider-desc">適合單車路線</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('osmTransport')">
+                                <div class="provider-name">交通地圖</div>
+                                <div class="provider-desc">公共交通路線</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('cartoVoyager')">
+                                <div class="provider-name">CartoDB Voyager</div>
+                                <div class="provider-desc">現代化地圖</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('cartoDark')">
+                                <div class="provider-name">深色地圖</div>
+                                <div class="provider-desc">夜間/低光源使用</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('esriWorld')">
+                                <div class="provider-name">ESRI 地圖</div>
+                                <div class="provider-desc">高解析度地圖</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('stadia')">
+                                <div class="provider-name">Stadia 地圖</div>
+                                <div class="provider-desc">現代地圖風格</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('opentopomap')">
+                                <div class="provider-name">OpenTopoMap</div>
+                                <div class="provider-desc">地形地圖</div>
+                            </div>
+                            
+                            <div class="provider-card" onclick="selectMapProvider('wikimedia')">
+                                <div class="provider-name">Wikimedia 地圖</div>
+                                <div class="provider-desc">維基媒體地圖</div>
+                            </div>
+                        </div>
+                        
+                        <div class="info-card mt-20">
+                            <h4 class="info-card-title" id="maps-tips-title">地圖提示</h4>
+                            <div class="info-card-content">
+                                <p id="maps-tip1">• OpenStreetMap 是免費開源地圖，無需API金鑰</p>
+                                <p id="maps-tip2">• 所有地圖類型均免費使用</p>
+                                <p id="maps-tip3">• 某些地圖可能載入較慢，請耐心等待</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 分工名單頁籤 -->
+                    <div id="team-tab" class="tab-pane">
+                        <div class="team-container">
+                            <div class="team-section">
+                                <h4 class="team-title" id="team-title">團隊成員與分工</h4>
+                                
+                                <div class="team-grid" id="team-grid">
+                                    <!-- 團隊成員將由JavaScript動態生成 -->
+                                </div>
+                                
+                                <div class="team-stats">
+                                    <div class="team-stat">
+                                        <div class="team-stat-value" id="total-members">5</div>
+                                        <div class="team-stat-label">團隊成員</div>
+                                    </div>
+                                    <div class="team-stat">
+                                        <div class="team-stat-value" id="total-tasks">12</div>
+                                        <div class="team-stat-label">總任務數</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="team-section">
+                                <h4 class="team-title" id="timeline-title">專案時間軸</h4>
+                                
+                                <div class="timeline">
+                                    <div class="timeline-item">
+                                        <div class="timeline-date">2025年12月</div>
+                                        <div class="timeline-content" id="timeline-1">專案啟動與需求分析</div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-date">2025年12月</div>
+                                        <div class="timeline-content" id="timeline-2">地圖功能開發與測試</div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-date">2026年1月</div>
+                                        <div class="timeline-content" id="timeline-3">多語言支援與優化</div>
+                                    </div>
+                                    <div class="timeline-item">
+                                        <div class="timeline-date">2026年1月</div>
+                                        <div class="timeline-content" id="timeline-4">最終測試與部署</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="team-section">
+                                <h4 class="team-title" id="project-title">專案資訊</h4>
+                                
+                                <div class="info-card-content">
+                                    <p id="project-desc">
+                                        本專案為「團結小隊」電子地圖系統，旨在提供一個多功能、可自訂的地圖應用程式，支援多種地圖類型、地點標記、路線規劃等功能。
+                                    </p>
+                                    <p id="project-feature1">• 支援10種以上地圖類型</p>
+                                    <p id="project-feature2">• 完整的多語言支援</p>
+                                    <p id="project-feature3">• 可自訂標記與路線</p>
+                                    <p id="project-feature4">• 離線資料儲存功能</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 系統資訊頁籤 -->
+                    <div id="info-tab" class="tab-pane">
+                        <div class="settings-container">
+                            <div class="info-card">
+                                <div class="info-card-title">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span id="info-title">系統資訊</span>
+                                </div>
+                                <div class="info-card-content">
+                                    <p id="info-description">本電子地圖系統提供多種地圖類型、地點標記、路線規劃等功能，支援離線使用和資料本地儲存。</p>
+                                    
+                                    <div class="info-stats">
+                                        <div class="info-stat">
+                                            <div class="info-stat-icon"><i class="fas fa-map-marked-alt"></i></div>
+                                            <div class="info-stat-value" id="stat-locations">0</div>
+                                            <div class="info-stat-label" id="label-stat-locations">地點標記</div>
+                                        </div>
+                                        <div class="info-stat">
+                                            <div class="info-stat-icon"><i class="fas fa-layer-group"></i></div>
+                                            <div class="info-stat-value">12</div>
+                                            <div class="info-stat-label" id="label-stat-layers">地圖圖層</div>
+                                        </div>
+                                        <div class="info-stat">
+                                            <div class="info-stat-icon"><i class="fas fa-language"></i></div>
+                                            <div class="info-stat-value">3</div>
+                                            <div class="info-stat-label" id="label-stat-languages">支援語言</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="info-card">
+                                <div class="info-card-title">
+                                    <i class="fas fa-sliders-h"></i>
+                                    <span id="system-settings-title">系統設定</span>
+                                </div>
+                                <div class="info-card-content">
+                                    <div class="setting-group">
+                                        <label class="setting-label" id="label-language">語言設定</label>
+                                        <select id="appLanguage" class="setting-control" onchange="changeLanguage(this.value)">
+                                            <option value="zh-TW">繁體中文</option>
+                                            <option value="en">English</option>
+                                            <option value="pt">Português</option>
+                                        </select>
+                                        <div class="setting-description" id="desc-language">選擇應用程式的顯示語言</div>
+                                    </div>
+                                    
+                                    <ul class="info-feature-list">
+                                        <li class="info-feature-item">
+                                            <div class="info-feature-icon"><i class="fas fa-check"></i></div>
+                                            <span id="feature1">支援10種以上地圖類型</span>
+                                        </li>
+                                        <li class="info-feature-item">
+                                            <div class="info-feature-icon"><i class="fas fa-check"></i></div>
+                                            <span id="feature2">完整的多語言支援</span>
+                                        </li>
+                                        <li class="info-feature-item">
+                                            <div class="info-feature-icon"><i class="fas fa-check"></i></div>
+                                            <span id="feature3">可自訂標記與路線</span>
+                                        </li>
+                                        <li class="info-feature-item">
+                                            <div class="info-feature-icon"><i class="fas fa-check"></i></div>
+                                            <span id="feature4">離線資料儲存功能</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-actions">
+                                <button class="btn" onclick="applyAllSettings()" id="btn-apply">套用所有設定</button>
+                                <button class="btn btn-reset" onclick="resetAllSettings()" id="btn-reset">重置為預設值</button>
+                                <button class="btn" onclick="saveSettings()" id="btn-save">儲存設定</button>
+                            </div>
+                            
+                            <div style="text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                                <p style="font-size: 0.8rem; color: #7f8c8d;">
+                                    版本: 2.0.0 | 最後更新: 2026年1月 | 開發者: 團結小隊
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-reset" onclick="resetMap()" id="btn-reset-view">重置視角</button>
+            <button class="btn btn-path" onclick="togglePath()" id="btn-path">路線開關</button>
+            <button class="btn" onclick="showAllMarkers()" id="btn-show-all">顯示全部</button>
+            <button class="btn" onclick="getCurrentLocation()" id="btn-my-location">我的位置</button>
+            <button class="btn" onclick="toggleDrawingMode()" id="btn-drawing">繪製模式</button>
+            <button class="btn btn-arrow" onclick="createArrowPathFromLocations()" id="btn-arrow-path">箭頭路徑</button>
+        </div>
+        
+        <footer>
+            <p id="footer-text">電子地圖 • 團結小隊～開發者—Haruki.N• 可離線使用 • 最後更新: 2026年1月</p>
+        </footer>
+    </div>
+    
+    <!-- 教學面板 -->
+    <div class="overlay" id="tutorialOverlay" onclick="closeTutorial()"></div>
+    <div class="tutorial-panel" id="tutorialPanel">
+        <div class="tutorial-header">
+            <div class="tutorial-title" id="tutorial-title">電子地圖使用教學</div>
+            <button class="tutorial-close" onclick="closeTutorial()">×</button>
+        </div>
+        <div class="tutorial-content" id="tutorial-content">
+            <!-- 內容將由JavaScript動態生成 -->
+        </div>
+    </div>
+
+    <script>
+        // ==================== 語言支援 ====================
+        const translations = {
+            'zh-TW': {
+                // 應用程式標題
+                'app-title': '團結小隊_電子地圖',
+                'app-subtitle': '支援多種地圖切換，可自訂地點、圖片和文字描述',
+                
+                // 頁籤標題
+                'tab-locations': '地點清單',
+                'tab-add': '新增地點',
+                'tab-maps': '地圖選擇',
+                'tab-team': '分工名單',
+                'tab-info': '系統資訊',
+                
+                // 座標拾取器
+                'picker-label': '座標拾取器',
+                'picker-info': '點擊上方「座標拾取器」開關，然後點擊地圖上的位置來獲取座標',
+                'picker-active': '座標拾取器已啟用！請點擊地圖上的位置來獲取座標',
+                'picker-notification': '已選取座標，已填入表單',
+                
+                // 控制按鈕
+                'btn-reset-view': '重置視角',
+                'btn-path': '路線開關',
+                'btn-show-all': '顯示全部',
+                'btn-my-location': '我的位置',
+                'btn-drawing': '繪製模式',
+                'btn-arrow-path': '箭頭路徑',
+                'btn-start-drawing': '開始繪製',
+                'btn-finish-drawing': '完成繪製',
+                'btn-convert-points': '轉換為地點',
+                'btn-clear-drawing': '清除',
+                
+                // 新增地點表單
+                'add-title': '新增地點',
+                'label-name': '地點名稱 *',
+                'label-lat': '緯度 (Latitude) *',
+                'label-lng': '經度 (Longitude) *',
+                'label-date': '造訪日期',
+                'label-image': '圖片網址',
+                'label-description': '地點描述',
+                'label-color': '標記顏色',
+                'image-hint': '可使用 Unsplash 圖片: https://images.unsplash.com/photo-...',
+                'btn-submit': '新增地點',
+                'btn-clear': '清除表單',
+                'btn-picker': '使用座標拾取器',
+                
+                // 地圖選擇
+                'maps-title': '選擇地圖類型',
+                'maps-desc': '點擊下方的地圖提供者切換不同風格的地圖',
+                'maps-tips-title': '地圖提示',
+                'maps-tip1': '• OpenStreetMap 是免費開源地圖，無需API金鑰',
+                'maps-tip2': '• 所有地圖類型均免費使用',
+                'maps-tip3': '• 某些地圖可能載入較慢，請耐心等待',
+                
+                // 路徑繪製
+                'drawing-title': '路徑繪製工具',
+                'drawing-desc': '點擊「開始繪製」按鈕，然後在地圖上點擊或從地點清單中添加點來繪製自定義路徑',
+                
+                // 分工名單
+                'team-title': '團隊成員與分工',
+                'timeline-title': '專案時間軸',
+                'project-title': '專案資訊',
+                'project-desc': '本專案為「團結小隊」電子地圖系統，旨在提供一個多功能、可自訂的地圖應用程式，支援多種地圖類型、地點標記、路線規劃等功能。',
+                'project-feature1': '• 支援10種以上地圖類型',
+                'project-feature2': '• 完整的多語言支援',
+                'project-feature3': '• 可自訂標記與路線',
+                'project-feature4': '• 離線資料儲存功能',
+                'timeline-1': '專案啟動與需求分析',
+                'timeline-2': '地圖功能開發與測試',
+                'timeline-3': '多語言支援與優化',
+                'timeline-4': '最終測試與部署',
+                
+                // 系統資訊
+                'info-title': '系統資訊',
+                'info-description': '本電子地圖系統提供多種地圖類型、地點標記、路線規劃等功能，支援離線使用和資料本地儲存。',
+                'label-stat-locations': '地點標記',
+                'label-stat-layers': '地圖圖層',
+                'label-stat-languages': '支援語言',
+                'system-settings-title': '系統設定',
+                'label-language': '語言設定',
+                'desc-language': '選擇應用程式的顯示語言',
+                'feature1': '支援10種以上地圖類型',
+                'feature2': '完整的多語言支援',
+                'feature3': '可自訂標記與路線',
+                'feature4': '離線資料儲存功能',
+                'btn-apply': '套用所有設定',
+                'btn-reset': '重置為預設值',
+                'btn-save': '儲存設定',
+                
+                // 導出選項
+                'export-gpx-name': 'GPX 格式',
+                'export-gpx-desc': '通用GPS交換格式',
+                'export-kml-name': 'KML 格式',
+                'export-kml-desc': 'Google Earth格式',
+                'export-geojson-name': 'GeoJSON 格式',
+                'export-geojson-desc': 'Web地圖常用格式',
+                'btn-export-gpx': '導出GPX',
+                'btn-export-kml': '導出KML',
+                'btn-export-geojson': '導出GeoJSON',
+                
+                // 其他
+                'footer-text': '電子地圖 • 團結小隊～開發者—Haruki.N• 可離線使用 • 最後更新: 2026年1月',
+                'search-placeholder': '搜尋地點...',
+                'no-locations': '尚未新增任何地點',
+                'location-added': '地點已成功新增！',
+                'location-updated': '地點已成功更新！',
+                'location-deleted': '地點已刪除！',
+                'confirm-delete': '確定要刪除這個地點嗎？',
+                'path-hidden': '路線已隱藏',
+                'path-shown': '路線已顯示',
+                'path-need-more': '請先新增至少兩個地點以顯示路線',
+                'location-found': '已定位到您的位置！座標已自動填入表單。',
+                'location-error': '無法取得您的位置：',
+                'location-unsupported': '您的瀏覽器不支援地理位置功能。',
+                'picker-enabled': '座標拾取器已啟用！請點擊地圖上的位置來獲取座標。',
+                'edit-instruction': '請修改地點資訊，然後點擊「更新地點」按鈕。',
+                'drawing-started': '繪製模式已啟用！請點擊地圖上的位置來添加路徑點。',
+                'drawing-finished': '路徑繪製完成！',
+                'drawing-cleared': '繪製路徑已清除。',
+                'drawing-need-more': '請至少添加兩個點來繪製路徑。',
+                'arrow-path-created': '已為現有路徑添加箭頭標記！',
+                'export-success': '路徑已成功導出！',
+                'offline-mode': '您目前處於離線模式，資料將在本機儲存。',
+                'settings-applied': '所有設定已套用！',
+                'confirm-reset': '確定要重置所有設定為預設值嗎？',
+                'settings-reset': '所有設定已重置為預設值！',
+                'points-converted': '繪製點已成功轉換為地點！',
+                'convert-confirm': '是否將繪製點轉換為地點並添加到地點清單？',
+                'convert-success': '已成功添加 {count} 個繪製點到地點清單！',
+                'all-locations-added': '所有地點已加入繪製路徑！',
+                'path-reversed': '路徑順序已反轉！',
+                'quick-path-preview': '路徑預覽',
+                'quick-export': '導出選項',
+                'quick-drawing': '繪製模式',
+                
+                // 團隊成員
+                'member1-name': '二谷遙希',
+                'member1-role': '全面開發',
+                'member1-tasks': '系統架構設計、全端功能開發、模組整合',
+                'member2-name': '廖俊榮',
+                'member2-role': '圖片蒐集',
+                'member2-tasks': '視覺素材蒐集、圖片資源管理、媒體資料庫建立',
+                'member3-name': '殷頌𤋮',
+                'member3-role': '問題處理',
+                'member3-tasks': '系統異常排除、技術問題解決、故障修復',
+                'member4-name': '黃梓鋒',
+                'member4-role': '問題處理',
+                'member4-tasks': '問題分析診斷、解決方案制定、技術支援',
+                'member5-name': '陳梓𨫡',
+                'member5-role': '測試工程師',
+                'member5-tasks': '測試案例執行、缺陷追蹤管理、品質驗證',
+                
+                // 教學內容
+                'tutorial-title': '電子地圖使用教學',
+                'tutorial-step1-title': '如何新增地點',
+                'tutorial-step1-desc': '1. 填寫地點名稱<br>2. 輸入座標或使用座標拾取器<br>3. 選擇造訪日期<br>4. 添加圖片網址（可選）<br>5. 填寫地點描述<br>6. 選擇標記顏色<br>7. 點擊「新增地點」按鈕',
+                'tutorial-step2-title': '如何使用座標拾取器',
+                'tutorial-step2-desc': '1. 點擊「座標拾取器」開關啟用功能<br>2. 在地圖上點擊想要標記的位置<br>3. 座標會自動填入表單中<br>4. 繼續填寫其他資訊並新增地點',
+                'tutorial-step3-title': '如何繪製路徑',
+                'tutorial-step3-desc': '1. 點擊「開始繪製」按鈕<br>2. 在地圖上點擊多個位置添加路徑點<br>3. 點擊「完成繪製」結束繪製<br>4. 點擊「轉換為地點」可將繪製點轉為地點<br>5. 點擊「清除」可刪除繪製的路徑',
+                'tutorial-step4-title': '如何導出路徑數據',
+                'tutorial-step4-desc': '1. 繪製路徑或添加多個地點<br>2. 點擊相應的導出按鈕：<br>   • GPX：通用GPS交換格式<br>   • KML：Google Earth格式<br>   • GeoJSON：Web地圖常用格式',
+                'tutorial-step5-title': '如何使用箭頭路徑',
+                'tutorial-step5-desc': '1. 在地圖資訊頁籤中選擇「箭頭路徑」樣式<br>2. 調整箭頭密度和大小<br>3. 點擊「箭頭路徑」按鈕為現有路徑添加箭頭<br>4. 箭頭會自動指向路徑方向'
+            },
+            'en': {
+                'app-title': 'Unity Team_Electronic Map',
+                'app-subtitle': 'Support multiple map switching, customizable locations, images and text descriptions',
+                'tab-locations': 'Location List',
+                'tab-add': 'Add Location',
+                'tab-maps': 'Map Selection',
+                'tab-team': 'Team Members',
+                'tab-info': 'System Information',
+                'picker-label': 'Coordinate Picker',
+                'picker-info': 'Click the "Coordinate Picker" switch above, then click on the map to get coordinates',
+                'picker-active': 'Coordinate picker enabled! Click on the map to get coordinates',
+                'picker-notification': 'Coordinates selected, filled in form',
+                'btn-reset-view': 'Reset View',
+                'btn-path': 'Toggle Path',
+                'btn-show-all': 'Show All',
+                'btn-my-location': 'My Location',
+                'btn-drawing': 'Drawing Mode',
+                'btn-arrow-path': 'Arrow Path',
+                'btn-start-drawing': 'Start Drawing',
+                'btn-finish-drawing': 'Finish Drawing',
+                'btn-convert-points': 'Convert to Locations',
+                'btn-clear-drawing': 'Clear',
+                'add-title': 'Add Location',
+                'label-name': 'Location Name *',
+                'label-lat': 'Latitude *',
+                'label-lng': 'Longitude *',
+                'label-date': 'Visit Date',
+                'label-image': 'Image URL',
+                'label-description': 'Location Description',
+                'label-color': 'Marker Color',
+                'image-hint': 'You can use Unsplash images: https://images.unsplash.com/photo-...',
+                'btn-submit': 'Add Location',
+                'btn-clear': 'Clear Form',
+                'btn-picker': 'Use Coordinate Picker',
+                'maps-title': 'Select Map Type',
+                'maps-desc': 'Click on the map providers below to switch between different map styles',
+                'maps-tips-title': 'Map Tips',
+                'maps-tip1': '• OpenStreetMap is free and open source, no API key required',
+                'maps-tip2': '• All map types are free to use',
+                'maps-tip3': '• Some maps may load slowly, please be patient',
+                'drawing-title': 'Path Drawing Tool',
+                'drawing-desc': 'Click "Start Drawing" button, then click on the map or add points from location list to draw a custom path',
+                'team-title': 'Team Members and Tasks',
+                'timeline-title': 'Project Timeline',
+                'project-title': 'Project Information',
+                'project-desc': 'This project is the "Unity Team" electronic map system, aiming to provide a multifunctional, customizable map application supporting various map types, location markers, route planning, etc.',
+                'project-feature1': '• Support for 10+ map types',
+                'project-feature2': '• Complete multilingual support',
+                'project-feature3': '• Customizable markers and routes',
+                'project-feature4': '• Offline data storage function',
+                'timeline-1': 'Project initiation and requirements analysis',
+                'timeline-2': 'Map function development and testing',
+                'timeline-3': 'Multilingual support and optimization',
+                'timeline-4': 'Final testing and deployment',
+                'info-title': 'System Information',
+                'info-description': 'This electronic map system provides various map types, location markers, route planning and other functions, supporting offline use and local data storage.',
+                'label-stat-locations': 'Location Markers',
+                'label-stat-layers': 'Map Layers',
+                'label-stat-languages': 'Supported Languages',
+                'system-settings-title': 'System Settings',
+                'label-language': 'Language Settings',
+                'desc-language': 'Select the display language of the application',
+                'feature1': 'Support for 10+ map types',
+                'feature2': 'Complete multilingual support',
+                'feature3': 'Customizable markers and routes',
+                'feature4': 'Offline data storage function',
+                'btn-apply': 'Apply All Settings',
+                'btn-reset': 'Reset to Default',
+                'btn-save': 'Save Settings',
+                'export-gpx-name': 'GPX Format',
+                'export-gpx-desc': 'Universal GPS exchange format',
+                'export-kml-name': 'KML Format',
+                'export-kml-desc': 'Google Earth format',
+                'export-geojson-name': 'GeoJSON Format',
+                'export-geojson-desc': 'Common web map format',
+                'btn-export-gpx': 'Export GPX',
+                'btn-export-kml': 'Export KML',
+                'btn-export-geojson': 'Export GeoJSON',
+                'footer-text': 'Electronic Map • Unity Team～Developer—Haruki.N• Can be used offline • Last update: January 2026',
+                'search-placeholder': 'Search locations...',
+                'no-locations': 'No locations added yet',
+                'location-added': 'Location successfully added!',
+                'location-updated': 'Location successfully updated!',
+                'location-deleted': 'Location deleted!',
+                'confirm-delete': 'Are you sure you want to delete this location?',
+                'path-hidden': 'Path hidden',
+                'path-shown': 'Path shown',
+                'path-need-more': 'Please add at least two locations to show path',
+                'location-found': 'Your location found! Coordinates automatically filled in the form.',
+                'location-error': 'Unable to get your location:',
+                'location-unsupported': 'Your browser does not support geolocation.',
+                'picker-enabled': 'Coordinate picker enabled! Please click on the map to get coordinates.',
+                'edit-instruction': 'Please modify location information, then click "Update Location" button.',
+                'drawing-started': 'Drawing mode enabled! Click on the map to add path points.',
+                'drawing-finished': 'Path drawing completed!',
+                'drawing-cleared': 'Drawing path cleared.',
+                'drawing-need-more': 'Please add at least two points to draw a path.',
+                'arrow-path-created': 'Arrow markers added to existing path!',
+                'export-success': 'Path successfully exported!',
+                'offline-mode': 'You are currently in offline mode, data will be stored locally.',
+                'settings-applied': 'All settings applied!',
+                'confirm-reset': 'Are you sure you want to reset all settings to default?',
+                'settings-reset': 'All settings reset to default!',
+                'points-converted': 'Drawing points successfully converted to locations!',
+                'convert-confirm': 'Convert drawing points to locations and add to location list?',
+                'convert-success': 'Successfully added {count} drawing points to location list!',
+                'all-locations-added': 'All locations added to drawing path!',
+                'path-reversed': 'Path order reversed!',
+                'quick-path-preview': 'Path Preview',
+                'quick-export': 'Export Options',
+                'quick-drawing': 'Drawing Mode',
+                'member1-name': 'Haruki Niya',
+                'member1-role': 'Full Stack Developer',
+                'member1-tasks': 'System architecture design, full-stack function development, module integration',
+                'member2-name': 'Junrong Liao',
+                'member2-role': 'Image Collection',
+                'member2-tasks': 'Visual material collection, image resource management, media database establishment',
+                'member3-name': 'Songxi Yin',
+                'member3-role': 'Problem Handling',
+                'member3-tasks': 'System exception handling, technical problem solving, fault repair',
+                'member4-name': 'Zifeng Huang',
+                'member4-role': 'Problem Handling',
+                'member4-tasks': 'Problem analysis and diagnosis, solution development, technical support',
+                'member5-name': 'Ziyan Chen',
+                'member5-role': 'Test Engineer',
+                'member5-tasks': 'Test case execution, defect tracking management, quality verification',
+                'tutorial-title': 'Electronic Map Tutorial',
+                'tutorial-step1-title': 'How to Add Locations',
+                'tutorial-step1-desc': '1. Fill in location name<br>2. Enter coordinates or use coordinate picker<br>3. Select visit date<br>4. Add image URL (optional)<br>5. Fill in location description<br>6. Select marker color<br>7. Click "Add Location" button',
+                'tutorial-step2-title': 'How to Use Coordinate Picker',
+                'tutorial-step2-desc': '1. Click "Coordinate Picker" switch to enable<br>2. Click on the map where you want to mark<br>3. Coordinates will be auto-filled in the form<br>4. Continue filling other information and add location',
+                'tutorial-step3-title': 'How to Draw Paths',
+                'tutorial-step3-desc': '1. Click "Start Drawing" button<br>2. Click multiple positions on the map to add path points<br>3. Click "Finish Drawing" to end drawing<br>4. Click "Convert to Locations" to convert drawing points to locations<br>5. Click "Clear" to delete drawn path',
+                'tutorial-step4-title': 'How to Export Path Data',
+                'tutorial-step4-desc': '1. Draw a path or add multiple locations<br>2. Click corresponding export button:<br>   • GPX: Universal GPS exchange format<br>   • KML: Google Earth format<br>   • GeoJSON: Common web map format',
+                'tutorial-step5-title': 'How to Use Arrow Paths',
+                'tutorial-step5-desc': '1. Select "Arrow Path" style in Map Info tab<br>2. Adjust arrow density and size<br>3. Click "Arrow Path" button to add arrows to existing path<br>4. Arrows will automatically point in path direction'
+            },
+            'pt': {
+                'app-title': 'Equipa Unida_Mapa Eletrónico',
+                'app-subtitle': 'Suporta múltiplos tipos de mapas, localizações personalizáveis, imagens e descrições de texto',
+                'tab-locations': 'Lista de Localizações',
+                'tab-add': 'Adicionar Localização',
+                'tab-maps': 'Seleção de Mapa',
+                'tab-team': 'Lista de Tarefas',
+                'tab-info': 'Informação do Sistema',
+                'picker-label': 'Seletor de Coordenadas',
+                'picker-info': 'Clique no interruptor "Seletor de Coordenadas" acima e depois clique no mapa para obter coordenadas',
+                'picker-active': 'Seletor de coordenadas ativado! Clique no mapa para obter coordenadas',
+                'picker-notification': 'Coordenadas selecionadas, preenchidas no formulário',
+                'btn-reset-view': 'Redefinir Vista',
+                'btn-path': 'Alternar Caminho',
+                'btn-show-all': 'Mostrar Todos',
+                'btn-my-location': 'Minha Localização',
+                'btn-drawing': 'Modo Desenho',
+                'btn-arrow-path': 'Caminho com Setas',
+                'btn-start-drawing': 'Começar Desenho',
+                'btn-finish-drawing': 'Terminar Desenho',
+                'btn-convert-points': 'Converter para Localizações',
+                'btn-clear-drawing': 'Limpar',
+                'add-title': 'Adicionar Localização',
+                'label-name': 'Nome da Localização *',
+                'label-lat': 'Latitude *',
+                'label-lng': 'Longitude *',
+                'label-date': 'Data da Visita',
+                'label-image': 'URL da Imagem',
+                'label-description': 'Descrição da Localização',
+                'label-color': 'Cor do Marcador',
+                'image-hint': 'Pode usar imagens Unsplash: https://images.unsplash.com/photo-...',
+                'btn-submit': 'Adicionar Localização',
+                'btn-clear': 'Limpar Formulário',
+                'btn-picker': 'Usar Seletor de Coordenadas',
+                'maps-title': 'Selecionar Tipo de Mapa',
+                'maps-desc': 'Clique nos fornecedores de mapa abaixo para alternar entre diferentes estilos de mapa',
+                'maps-tips-title': 'Dicas do Mapa',
+                'maps-tip1': '• OpenStreetMap é gratuito e de código aberto, sem necessidade de chave API',
+                'maps-tip2': '• Todos os tipos de mapa são gratuitos',
+                'maps-tip3': '• Alguns mapas podem carregar lentamente, por favor seja paciente',
+                'drawing-title': 'Ferramenta de Desenho de Caminho',
+                'drawing-desc': 'Clique no botão "Começar Desenho", depois clique no mapa ou adicione pontos da lista de localizações para desenhar um caminho personalizado',
+                'team-title': 'Membros da Equipa e Tarefas',
+                'timeline-title': 'Cronograma do Projeto',
+                'project-title': 'Informação do Projeto',
+                'project-desc': 'Este projeto é o sistema de mapa eletrónico "Equipa Unida", visando fornecer uma aplicação de mapa multifuncional e personalizável, suportando vários tipos de mapa, marcadores de localização, planeamento de rotas, etc.',
+                'project-feature1': '• Suporte para 10+ tipos de mapa',
+                'project-feature2': '• Suporte multilingue completo',
+                'project-feature3': '• Marcadores e rotas personalizáveis',
+                'project-feature4': '• Função de armazenamento de dados offline',
+                'timeline-1': 'Iniciação do projeto e análise de requisitos',
+                'timeline-2': 'Desenvolvimento e teste de funções de mapa',
+                'timeline-3': 'Suporte multilingue e otimização',
+                'timeline-4': 'Teste final e implementação',
+                'info-title': 'Informação do Sistema',
+                'info-description': 'Este sistema de mapa eletrónico fornece vários tipos de mapa, marcadores de localização, planeamento de rotas e outras funções, suportando uso offline e armazenamento local de dados.',
+                'label-stat-locations': 'Marcadores de Localização',
+                'label-stat-layers': 'Camadas do Mapa',
+                'label-stat-languages': 'Idiomas Suportados',
+                'system-settings-title': 'Configurações do Sistema',
+                'label-language': 'Configurações de Idioma',
+                'desc-language': 'Selecione o idioma de exibição da aplicação',
+                'feature1': 'Suporte para 10+ tipos de mapa',
+                'feature2': 'Suporte multilingue completo',
+                'feature3': 'Marcadores e rotas personalizáveis',
+                'feature4': 'Função de armazenamento de dados offline',
+                'btn-apply': 'Aplicar Todas as Configurações',
+                'btn-reset': 'Redefinir para Padrão',
+                'btn-save': 'Guardar Configurações',
+                'export-gpx-name': 'Formato GPX',
+                'export-gpx-desc': 'Formato universal de troca GPS',
+                'export-kml-name': 'Formato KML',
+                'export-kml-desc': 'Formato do Google Earth',
+                'export-geojson-name': 'Formato GeoJSON',
+                'export-geojson-desc': 'Formato comum de mapas web',
+                'btn-export-gpx': 'Exportar GPX',
+                'btn-export-kml': 'Exportar KML',
+                'btn-export-geojson': 'Exportar GeoJSON',
+                'footer-text': 'Mapa Eletrónico • Equipa Unida～Desenvolvedor—Haruki.N• Pode ser usado offline • Última atualização: Janeiro 2026',
+                'search-placeholder': 'Pesquisar localizações...',
+                'no-locations': 'Ainda não foram adicionadas localizações',
+                'location-added': 'Localização adicionada com sucesso!',
+                'location-updated': 'Localização atualizada com sucesso!',
+                'location-deleted': 'Localização eliminada!',
+                'confirm-delete': 'Tem a certeza de que deseja eliminar esta localização?',
+                'path-hidden': 'Caminho oculto',
+                'path-shown': 'Caminho mostrado',
+                'path-need-more': 'Por favor adicione pelo menos duas localizações para mostrar o caminho',
+                'location-found': 'A sua localização encontrada! Coordenadas automaticamente preenchidas no formulário.',
+                'location-error': 'Não foi possível obter a sua localização:',
+                'location-unsupported': 'O seu navegador não suporta geolocalização.',
+                'picker-enabled': 'Seletor de coordenadas ativado! Por favor clique no mapa para obter coordenadas.',
+                'edit-instruction': 'Por favor modifique a informação da localização, depois clique no botão "Atualizar Localização".',
+                'drawing-started': 'Modo de desenho ativado! Clique no mapa para adicionar pontos de caminho.',
+                'drawing-finished': 'Desenho do caminho concluído!',
+                'drawing-cleared': 'Caminho de desenho limpo.',
+                'drawing-need-more': 'Por favor adicione pelo menos dois pontos para desenhar um caminho.',
+                'arrow-path-created': 'Marcadores de seta adicionados ao caminho existente!',
+                'export-success': 'Caminho exportado com sucesso!',
+                'offline-mode': 'Atualmente está em modo offline, os dados serão armazenados localmente.',
+                'settings-applied': 'Todas as configurações aplicadas!',
+                'confirm-reset': 'Tem a certeza de que deseja redefinir todas as configurações para o padrão?',
+                'settings-reset': 'Todas as configurações redefinidas para o padrão!',
+                'points-converted': 'Pontos de desenho convertidos com sucesso para localizações!',
+                'convert-confirm': 'Converter pontos de desenho para localizações e adicionar à lista de localizações?',
+                'convert-success': 'Adicionados com sucesso {count} pontos de desenho à lista de localizações!',
+                'all-locations-added': 'Todas as localizações adicionadas ao caminho de desenho!',
+                'path-reversed': 'Ordem do caminho invertida!',
+                'quick-path-preview': 'Pré-visualização do Caminho',
+                'quick-export': 'Opções de Exportação',
+                'quick-drawing': 'Modo Desenho',
+                'member1-name': 'Haruki Niya',
+                'member1-role': 'Desenvolvimento Completo',
+                'member1-tasks': 'Design de arquitetura do sistema, desenvolvimento de funções full-stack, integração de módulos',
+                'member2-name': 'Junrong Liao',
+                'member2-role': 'Coleção de Imagens',
+                'member2-tasks': 'Coleção de material visual, gestão de recursos de imagem, estabelecimento de base de dados de mídia',
+                'member3-name': 'Songxi Yin',
+                'member3-role': 'Tratamento de Problemas',
+                'member3-tasks': 'Resolução de exceções do sistema, solução de problemas técnicos, reparação de falhas',
+                'member4-name': 'Zifeng Huang',
+                'member4-role': 'Tratamento de Problemas',
+                'member4-tasks': 'Análise e diagnóstico de problemas, desenvolvimento de soluções, suporte técnico',
+                'member5-name': 'Ziyan Chen',
+                'member5-role': 'Engenheiro de Testes',
+                'member5-tasks': 'Execução de casos de teste, gestão de rastreamento de defeitos, verificação de qualidade',
+                'tutorial-title': 'Tutorial do Mapa Eletrónico',
+                'tutorial-step1-title': 'Como Adicionar Localizações',
+                'tutorial-step1-desc': '1. Preencha o nome da localização<br>2. Insira coordenadas ou use o seletor de coordenadas<br>3. Selecione a data da visita<br>4. Adicione URL da imagem (opcional)<br>5. Preencha a descrição da localização<br>6. Selecione a cor do marcador<br>7. Clique no botão "Adicionar Localização"',
+                'tutorial-step2-title': 'Como Usar o Seletor de Coordenadas',
+                'tutorial-step2-desc': '1. Clique no interruptor "Seletor de Coordenadas" para ativar<br>2. Clique no mapa onde deseja marcar<br>3. As coordenadas serão preenchidas automaticamente no formulário<br>4. Continue preenchendo outras informações e adicione a localização',
+                'tutorial-step3-title': 'Como Desenhar Caminhos',
+                'tutorial-step3-desc': '1. Clique no botão "Começar Desenho"<br>2. Clique em várias posições no mapa para adicionar pontos de caminho<br>3. Clique em "Terminar Desenho" para terminar<br>4. Clique em "Converter para Localizações" para converter pontos de desenho em localizações<br>5. Clique em "Limpar" para apagar o caminho desenhado',
+                'tutorial-step4-title': 'Como Exportar Dados de Caminho',
+                'tutorial-step4-desc': '1. Desenhe um caminho ou adicione várias localizações<br>2. Clique no botão de exportação correspondente:<br>   • GPX: Formato universal de troca GPS<br>   • KML: Formato do Google Earth<br>   • GeoJSON: Formato comum de mapas web',
+                'tutorial-step5-title': 'Como Usar Caminhos com Setas',
+                'tutorial-step5-desc': '1. Selecione o estilo "Caminho com Setas" no separador Informação do Mapa<br>2. Ajuste a densidade e tamanho das setas<br>3. Clique no botão "Caminho com Setas" para adicionar setas ao caminho existente<br>4. As setas apontarão automaticamente na direção do caminho'
+            }
+        };
+        
+        // ==================== 團隊成員資料 ====================
+        const teamMembers = [
+            {
+                id: 1,
+                name: '二谷遙希',
+                role: '全面開發',
+                tasks: '系統架構設計、全端功能開發、模組整合',
+                color: '#3498db'
+            },
+            {
+                id: 2,
+                name: '廖俊榮',
+                role: '圖片蒐集',
+                tasks: '視覺素材蒐集、圖片資源管理、媒體資料庫建立',
+                color: '#2ecc71'
+            },
+            {
+                id: 3,
+                name: '殷頌𤋮',
+                role: '問題處理',
+                tasks: '系統異常排除、技術問題解決、故障修復',
+                color: '#e74c3c'
+            },
+            {
+                id: 4,
+                name: '黃梓鋒',
+                role: '問題處理',
+                tasks: '問題分析診斷、解決方案制定、技術支援',
+                color: '#9b59b6'
+            },
+            {
+                id: 5,
+                name: '陳梓𨫡',
+                role: '測試工程師',
+                tasks: '測試案例執行、缺陷追蹤管理、品質驗證',
+                color: '#f39c12'
+            }
+        ];
+        
+        // ==================== 初始化地圖 ====================
+        let map;
+        let currentMapLayer;
+        const mapLayers = {};
+        let locations = [];
+        let markers = [];
+        let pathLine = null;
+        let activeLocationId = null;
+        let isCoordinatePickerActive = false;
+        let pickerMarker = null;
+        let mapClickHandler = null;
+        let mapSettings = {
+            language: 'zh-TW',
+            theme: 'light'
+        };
+        
+        // 繪製路徑相關變數
+        let isDrawingMode = false;
+        let drawingPoints = [];
+        let drawingLine = null;
+        let drawingMarkers = [];
+        let mapDrawingHandler = null;
+        
+        // ==================== 初始化應用程式 ====================
+        function initApp() {
+            // 初始化地圖
+            map = L.map('map').setView([22.1987, 113.5439], 12);
+            
+            // 定義地圖圖層
+            mapLayers.osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            });
+            
+            mapLayers.osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team',
+                maxZoom: 19
+            });
+            
+            mapLayers.osmCycle = L.tileLayer('https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=1a9a81c0155a4c2898c6b698376b5d98', {
+                attribution: '© <a href="https://www.thunderforest.com/">Thunderforest</a>, © OpenStreetMap contributors',
+                maxZoom: 19
+            });
+            
+            mapLayers.osmTransport = L.tileLayer('https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=1a9a81c0155a4c2898c6b698376b5d98', {
+                attribution: '© <a href="https://www.thunderforest.com/">Thunderforest</a>, © OpenStreetMap contributors',
+                maxZoom: 19
+            });
+            
+            mapLayers.cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
+                maxZoom: 19
+            });
+            
+            mapLayers.cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
+                maxZoom: 19
+            });
+            
+            mapLayers.esriWorld = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© <a href="https://www.esri.com/">Esri</a>',
+                maxZoom: 19
+            });
+            
+            mapLayers.stadia = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+                attribution: '© <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> © <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            });
+            
+            mapLayers.opentopomap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://opentopomap.org">OpenTopoMap</a> contributors',
+                maxZoom: 17
+            });
+            
+            mapLayers.wikimedia = L.tileLayer('https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://wikimediafoundation.org/">Wikimedia</a>',
+                maxZoom: 19
+            });
+            
+            // 預設使用 OpenStreetMap
+            currentMapLayer = mapLayers.osm;
+            currentMapLayer.addTo(map);
+            
+            // 載入儲存的資料
+            loadFromLocalStorage();
+            
+            // 如果沒有地點資料，使用預設資料
+            if (locations.length === 0) {
+                locations = [
+                    {
+                        id: 1,
+                        name: "竹灣海灘",
+                        lat: 22.113469, 
+                        lng: 113.561309,
+                        date: "2025-12-27",
+                        image: "1.jpg",
+                        description: "1. 你認為竹灣海灘的海水清澈度如何？ <br>在某程度上某些季節水質會比較清。但絕大部份時候水質都是渾濁的，因為它是泥底。<br>2. 你覺得竹灣海灘的環境與衛生狀況如何？<br>水質基本上都是正常和乾淨的，水質差是因為它表面看上去邋遢，但打完風後或者某些季節又或者有紅潮就會邋遢。",
+                        color: "#2750F5"
+                    },
+                    {
+                        id: 2,
+                        name: "竹灣海灘",
+                        lat: 22.113605,
+                        lng: 113.561022,
+                        date: "2025-12-27",
+                        image: "2.jpg",
+                        description: "3. 竹灣的環境臭不臭？<br>要看是什麼情況下，但大部份時候都不臭<br>4. 你認為竹灣海域污染嚴重嗎？<br>有時會比較污濁，不過可以接受",
+                        color: "#6176C9"
+                    },
+                    {
+                        id: 3,
+                        name: "竹灣海灘",
+                        lat: 22.113342,
+                        lng: 113.559509,
+                        date: "2025-12-27",
+                        image: "3.jpg",
+                        description: "5. 你認為竹灣海灘目前最需要改善的方面是什麼？（例如：清潔、設施、安全等）<br>我認為可以多放幾張椅子在陰涼的位置。<br>6. 係竹灣海灘度，你最鍾意做嘅一件小事係乜？<br>我最喜歡在這裏游泳。",
+                        color: "#34B80B"
+                    },
+                    {
+                        id: 4,
+                        name: "竹灣海灘",
+                        lat: 22.112572,
+                        lng: 113.559029,
+                        date: "2025-12-27",
+                        image: "4.jpg",
+                        description: "7. 如果竹灣的水質能進一步改善，您最希望看到哪些具體變化（比如更清澈、減少垃圾等）？<br>這裏可能會有一些微小的玻璃碎渣，我認為需要清理他們，因為我們肉眼看不見，容易踩到受傷。<br>8. 你覺得竹灣海灘，同澳門其他海灘比，有咩獨特嘅生活味道？<br>我覺得挺不錯，我剛剛從另外一邊徒步過來，路途還挺漂亮的，感覺一下子從繁華的都市來到了大自然，然後迎面而來的是海的味道，十分新鮮。",
+                        color: "#FFA200"
+                    },
+                    {
+                        id: 5,
+                        name: "竹灣海灘",
+                        lat: 22.113121,
+                        lng: 113.559308,
+                        date: "2025-12-27",
+                        image: "5.jpg",
+                        description: "10. 該海灘的海水溫度與其他海灘相比，是否存在明顯差異？<br>我覺得這個海灘的海水溫度會比其他海灘的海水溫度高一點",
+                        color: "#C300FF"
+                    },
+                    {
+                        id: 6,
+                        name: "竹灣海灘",
+                        lat: 22.113116,
+                        lng: 113.559137,
+                        date: "2025-12-27",
+                        image: "6.jpg",
+                        description: "9. 您平時有觀察過黑沙環周邊水域（如海邊、河道）的水質情況嗎？您覺得它目前整體怎麼樣？<br>這裏有很多的垃圾，我認為需要清理一下它們。",
+                        color: "#e74c3c"
+                    }
+                ];
+            }
+            
+            // 初始化地圖標記
+            initMap();
+            
+            // 設置日期預設值
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            
+            // 更新地圖提供商卡片
+            updateProviderCards('osm');
+            
+            // 更新團隊成員顯示
+            updateTeamDisplay();
+            
+            // 設定搜尋框提示
+            document.getElementById('locationSearch').placeholder = getTranslation('search-placeholder');
+            
+            // 更新所有介面文字
+            updateInterfaceText(mapSettings.language);
+            
+            // 設置語言選擇器
+            const langSelect = document.getElementById('appLanguage');
+            if (langSelect) {
+                langSelect.value = mapSettings.language;
+            }
+            
+            console.log('應用程式初始化完成！');
+        }
+        
+        // ==================== 地圖功能 ====================
+        function initMap() {
+            // 清除現有標記
+            markers.forEach(marker => {
+                map.removeLayer(marker.marker);
+            });
+            markers = [];
+            
+            // 添加所有地點標記
+            locations.forEach(location => {
+                addMarkerToMap(location);
+            });
+            
+            // 繪製路徑
+            drawPath();
+            
+            // 更新地點列表
+            updateLocationList();
+            
+            // 如果有多個地點，顯示所有標記
+            if (locations.length > 0) {
+                showAllMarkers();
+            }
+            
+            // 更新系統資訊
+            updateSystemInfo();
+        }
+        
+        function addMarkerToMap(location) {
+            const marker = L.marker([location.lat, location.lng], {
+                icon: createCustomIcon(location.id, location.color)
+            }).addTo(map);
+            
+            const popupContent = `
+                <div style="max-width: 250px;">
+                    <h3 style="margin-top: 0; color: ${location.color};">${location.name}</h3>
+                    <img src="${location.image || 'https://images.unsplash.com/photo-1552465011-b4e30bf7349d?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80'}" 
+                         alt="${location.name}" 
+                         style="width:100%; height:150px; object-fit:cover; border-radius:5px;">
+                    <p><strong>日期：</strong>${location.date || '未指定'}</p>
+                    <p>${location.description ? location.description.substring(0, 100) + '...' : '無描述'}</p>
+                    <button onclick="showLocationDetail(${location.id})" 
+                            style="background:${location.color}; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-top:5px;">
+                        查看詳情
+                    </button>
+                </div>
+            `;
+            
+            marker.bindPopup(popupContent);
+            marker.on('click', function() {
+                showLocationDetail(location.id);
+            });
+            
+            markers.push({
+                id: location.id,
+                marker: marker,
+                lat: location.lat,
+                lng: location.lng
+            });
+        }
+        
+        function createCustomIcon(id, color) {
+            return L.divIcon({
+                html: `<div class="custom-marker" style="background-color:${color};">${id}</div>`,
+                className: 'custom-div-icon',
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+        }
+        
+        function drawPath() {
+            // 清除現有的路徑
+            if (pathLine) {
+                map.removeLayer(pathLine);
+            }
+            
+            if (locations.length < 2) {
+                pathLine = null;
+                return;
+            }
+            
+            const sortedLocations = [...locations].sort((a, b) => a.id - b.id);
+            const pathCoordinates = sortedLocations.map(loc => [loc.lat, loc.lng]);
+            
+            pathLine = L.polyline(pathCoordinates, {
+                color: '#3498db',
+                weight: 4,
+                opacity: 0.7,
+                dashArray: '10, 10'
+            }).addTo(map);
+        }
+        
+        function togglePath() {
+            if (pathLine) {
+                if (map.hasLayer(pathLine)) {
+                    map.removeLayer(pathLine);
+                    alert(getTranslation('path-hidden'));
+                } else {
+                    pathLine.addTo(map);
+                    alert(getTranslation('path-shown'));
+                }
+            } else {
+                alert(getTranslation('path-need-more'));
+            }
+        }
+        
+        function changeMapType(mapType) {
+            if (mapLayers[mapType]) {
+                map.removeLayer(currentMapLayer);
+                currentMapLayer = mapLayers[mapType];
+                currentMapLayer.addTo(map);
+                updateProviderCards(mapType);
+                document.getElementById('mapType').value = mapType;
+            }
+        }
+        
+        function selectMapProvider(mapType) {
+            changeMapType(mapType);
+            switchTab('locations');
+        }
+        
+        function updateProviderCards(activeMapType) {
+            document.querySelectorAll('.provider-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            const providerCards = document.querySelectorAll('.provider-card');
+            for (let card of providerCards) {
+                if (card.onclick && card.onclick.toString().includes(`'${activeMapType}'`)) {
+                    card.classList.add('active');
+                    break;
+                }
+            }
+        }
+        
+        // ==================== 地點管理 ====================
+        function addLocation() {
+            const name = document.getElementById('name').value;
+            const lat = parseFloat(document.getElementById('lat').value);
+            const lng = parseFloat(document.getElementById('lng').value);
+            const date = document.getElementById('date').value;
+            const image = document.getElementById('image').value;
+            const description = document.getElementById('description').value;
+            const color = document.getElementById('color').value;
+            
+            if (!name || isNaN(lat) || isNaN(lng)) {
+                alert('請填寫地點名稱和有效的座標！');
+                return;
+            }
+            
+            const newId = locations.length > 0 ? Math.max(...locations.map(loc => loc.id)) + 1 : 1;
+            
+            const newLocation = {
+                id: newId,
+                name,
+                lat,
+                lng,
+                date: date || new Date().toISOString().split('T')[0],
+                image: image || 'https://images.unsplash.com/photo-1552465011-b4e30bf7349d?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80',
+                description: description || '無描述',
+                color: color || '#3498db'
+            };
+            
+            locations.push(newLocation);
+            addMarkerToMap(newLocation);
+            drawPath();
+            updateLocationList();
+            switchTab('locations');
+            showLocationDetail(newId);
+            saveToLocalStorage();
+            clearForm();
+            
+            alert(getTranslation('location-added'));
+            updateSystemInfo();
+        }
+        
+        function updateLocationList() {
+            const locationList = document.getElementById('locationList');
+            if (!locationList) return;
+            
+            locationList.innerHTML = '';
+            
+            if (locations.length === 0) {
+                locationList.innerHTML = `<p class="empty-state">${getTranslation('no-locations')}</p>`;
+                return;
+            }
+            
+            const sortedLocations = [...locations].sort((a, b) => a.id - b.id);
+            
+            sortedLocations.forEach(location => {
+                const card = document.createElement('div');
+                card.className = 'location-card';
+                if (location.id === activeLocationId) {
+                    card.classList.add('active');
+                }
+                card.id = `location-card-${location.id}`;
+                
+                card.innerHTML = `
+                    <div class="location-title">
+                        <span class="location-name">${location.name}</span>
+                        <span class="location-date">${location.date || '無日期'}</span>
+                    </div>
+                    <img class="location-img" src="${location.image || 'https://images.unsplash.com/photo-1552465011-b4e30bf7349d?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80'}" alt="${location.name}">
+                    <p class="location-desc">${location.description || '無描述'}</p>
+                    <div class="location-coords">座標: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</div>
+                    <div class="card-actions">
+                        <button class="action-btn edit-btn" onclick="editLocation(${location.id})">編輯</button>
+                        <button class="action-btn delete-btn" onclick="deleteLocation(${location.id})">刪除</button>
+                    </div>
+                `;
+                
+                card.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('action-btn')) {
+                        showLocationDetail(location.id);
+                    }
+                });
+                
+                locationList.appendChild(card);
+            });
+        }
+        
+        function searchLocations() {
+            const searchTerm = document.getElementById('locationSearch').value.toLowerCase();
+            const locationCards = document.querySelectorAll('.location-card');
+            
+            locationCards.forEach(card => {
+                const locationName = card.querySelector('.location-name').textContent.toLowerCase();
+                const locationDesc = card.querySelector('.location-desc').textContent.toLowerCase();
+                
+                if (locationName.includes(searchTerm) || locationDesc.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        function showLocationDetail(locationId) {
+            const location = locations.find(loc => loc.id === locationId);
+            if (!location) return;
+            
+            activeLocationId = locationId;
+            updateLocationList();
+            
+            map.flyTo([location.lat, location.lng], 12, {
+                duration: 1.5
+            });
+            
+            const marker = markers.find(m => m.id === locationId);
+            if (marker) {
+                marker.marker.openPopup();
+            }
+        }
+        
+        function editLocation(locationId) {
+            event.stopPropagation();
+            
+            const location = locations.find(loc => loc.id === locationId);
+            if (!location) return;
+            
+            document.getElementById('name').value = location.name;
+            document.getElementById('lat').value = location.lat;
+            document.getElementById('lng').value = location.lng;
+            document.getElementById('date').value = location.date || '';
+            document.getElementById('image').value = location.image || '';
+            document.getElementById('description').value = location.description || '';
+            document.getElementById('color').value = location.color || '#3498db';
+            
+            switchTab('add');
+            
+            const submitBtn = document.getElementById('btn-submit');
+            submitBtn.textContent = '更新地點';
+            submitBtn.onclick = function() {
+                updateLocation(locationId);
+            };
+            
+            map.flyTo([location.lat, location.lng], 12, {
+                duration: 1.5
+            });
+            
+            alert(getTranslation('edit-instruction'));
+        }
+        
+        function updateLocation(locationId) {
+            const name = document.getElementById('name').value;
+            const lat = parseFloat(document.getElementById('lat').value);
+            const lng = parseFloat(document.getElementById('lng').value);
+            const date = document.getElementById('date').value;
+            const image = document.getElementById('image').value;
+            const description = document.getElementById('description').value;
+            const color = document.getElementById('color').value;
+            
+            if (!name || isNaN(lat) || isNaN(lng)) {
+                alert('請填寫地點名稱和有效的座標！');
+                return;
+            }
+            
+            const locationIndex = locations.findIndex(loc => loc.id === locationId);
+            if (locationIndex === -1) return;
+            
+            locations[locationIndex] = {
+                id: locationId,
+                name,
+                lat,
+                lng,
+                date: date || new Date().toISOString().split('T')[0],
+                image: image || 'https://images.unsplash.com/photo-1552465011-b4e30bf7349d?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80',
+                description: description || '無描述',
+                color: color || '#3498db'
+            };
+            
+            initMap();
+            switchTab('locations');
+            
+            const submitBtn = document.getElementById('btn-submit');
+            submitBtn.textContent = getTranslation('btn-submit');
+            submitBtn.onclick = addLocation;
+            
+            saveToLocalStorage();
+            clearForm();
+            
+            alert(getTranslation('location-updated'));
+            updateSystemInfo();
+        }
+        
+        function deleteLocation(locationId) {
+            event.stopPropagation();
+            
+            if (!confirm(getTranslation('confirm-delete'))) {
+                return;
+            }
+            
+            const locationIndex = locations.findIndex(loc => loc.id === locationId);
+            if (locationIndex !== -1) {
+                locations.splice(locationIndex, 1);
+            }
+            
+            initMap();
+            saveToLocalStorage();
+            
+            alert(getTranslation('location-deleted'));
+            updateSystemInfo();
+        }
+        
+        function clearForm() {
+            document.getElementById('locationForm').reset();
+            document.getElementById('color').value = '#3498db';
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            
+            const submitBtn = document.getElementById('btn-submit');
+            submitBtn.textContent = getTranslation('btn-submit');
+            submitBtn.onclick = addLocation;
+            
+            disableCoordinatePicker();
+            const pickerToggle = document.getElementById('coordinatePickerToggle');
+            if (pickerToggle) pickerToggle.checked = false;
+        }
+        
+        // ==================== 其他功能 ====================
+        function resetMap() {
+            map.flyTo([22.1987, 113.5439], 12, {
+                duration: 1.5
+            });
+            
+            markers.forEach(m => m.marker.closePopup());
+            activeLocationId = null;
+            updateLocationList();
+            disableCoordinatePicker();
+            const pickerToggle = document.getElementById('coordinatePickerToggle');
+            if (pickerToggle) pickerToggle.checked = false;
+        }
+        
+        function showAllMarkers() {
+            if (locations.length === 0) {
+                alert(getTranslation('no-locations'));
+                return;
+            }
+            
+            const bounds = L.latLngBounds([]);
+            locations.forEach(loc => bounds.extend([loc.lat, loc.lng]));
+            map.flyToBounds(bounds, { padding: [50, 50], duration: 2 });
+        }
+        
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        map.flyTo([lat, lng], 14, {
+                            duration: 1.5
+                        });
+                        
+                        const marker = L.marker([lat, lng]).addTo(map);
+                        marker.bindPopup('您的當前位置').openPopup();
+                        
+                        document.getElementById('lat').value = lat.toFixed(6);
+                        document.getElementById('lng').value = lng.toFixed(6);
+                        
+                        if (!document.getElementById('name').value) {
+                            document.getElementById('name').value = '我的位置';
+                        }
+                        
+                        alert(getTranslation('location-found'));
+                    },
+                    function(error) {
+                        alert(getTranslation('location-error') + error.message);
+                    }
+                );
+            } else {
+                alert(getTranslation('location-unsupported'));
+            }
+        }
+        
+        function createArrowPathFromLocations() {
+            if (locations.length < 2) {
+                alert('請先添加至少兩個地點');
+                return;
+            }
+            
+            alert(getTranslation('arrow-path-created'));
+        }
+        
+        // ==================== 座標拾取器功能 ====================
+        function toggleCoordinatePicker() {
+            const pickerToggle = document.getElementById('coordinatePickerToggle');
+            
+            if (pickerToggle.checked) {
+                enableCoordinatePicker();
+            } else {
+                disableCoordinatePicker();
+            }
+        }
+        
+        function enableCoordinatePicker() {
+            isCoordinatePickerActive = true;
+            
+            const addTab = document.querySelector('.tab[onclick="switchTab(\'add\')"]');
+            if (!addTab.classList.contains('active')) {
+                addTab.click();
+            }
+            
+            const infoElement = document.getElementById('coordPickerInfo');
+            if (infoElement) {
+                infoElement.textContent = getTranslation('picker-active');
+            }
+            
+            mapClickHandler = function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                document.getElementById('lat').value = lat.toFixed(6);
+                document.getElementById('lng').value = lng.toFixed(6);
+                
+                if (pickerMarker) {
+                    map.removeLayer(pickerMarker);
+                }
+                
+                pickerMarker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: '<div class="picker-marker"></div>',
+                        className: 'picker-div-icon',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+                
+                showCoordinateNotification(getTranslation('picker-notification'));
+                
+                map.flyTo([lat, lng], Math.max(map.getZoom(), 12), {
+                    duration: 0.5
+                });
+            };
+            
+            map.on('click', mapClickHandler);
+            document.querySelector('.map-section').classList.add('picker-mode-active');
+        }
+        
+        function disableCoordinatePicker() {
+            isCoordinatePickerActive = false;
+            
+            if (mapClickHandler) {
+                map.off('click', mapClickHandler);
+                mapClickHandler = null;
+            }
+            
+            if (pickerMarker) {
+                map.removeLayer(pickerMarker);
+                pickerMarker = null;
+            }
+            
+            const infoElement = document.getElementById('coordPickerInfo');
+            if (infoElement) {
+                infoElement.textContent = getTranslation('picker-info');
+            }
+            
+            document.querySelector('.map-section').classList.remove('picker-mode-active');
+        }
+        
+        function showCoordinateNotification(message) {
+            const notification = document.getElementById('coordinateNotification');
+            if (notification) {
+                notification.textContent = message;
+                notification.style.display = 'block';
+                
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 3000);
+            }
+        }
+        
+        function useCoordinatePicker() {
+            document.getElementById('coordinatePickerToggle').checked = true;
+            toggleCoordinatePicker();
+            alert(getTranslation('picker-enabled'));
+        }
+        
+        // ==================== 語言功能 ====================
+        function changeLanguage(lang) {
+            mapSettings.language = lang;
+            
+            // 更新所有介面文字
+            updateInterfaceText(lang);
+            
+            // 儲存設定
+            saveSettings();
+            
+            // 更新團隊成員顯示
+            updateTeamDisplay();
+            
+            // 更新系統資訊
+            updateSystemInfo();
+            
+            alert('語言已更改為: ' + getLanguageName(lang));
+        }
+        
+        function getLanguageName(langCode) {
+            const languageNames = {
+                'zh-TW': '繁體中文',
+                'en': 'English',
+                'pt': 'Português'
+            };
+            return languageNames[langCode] || langCode;
+        }
+        
+        function updateInterfaceText(lang) {
+            const t = translations[lang] || translations['zh-TW'];
+            
+            // 更新所有帶有ID的元素文字
+            for (const key in t) {
+                const element = document.getElementById(key);
+                if (element) {
+                    if (key === 'image-hint' || key.startsWith('maps-tip') || 
+                        key.startsWith('project-feature') || key.startsWith('timeline-') ||
+                        key.startsWith('desc-') || key.startsWith('label-') || 
+                        key.startsWith('feature') || key === 'drawing-title' || 
+                        key === 'drawing-desc') {
+                        element.textContent = t[key];
+                    } else if (element.tagName === 'INPUT' && element.type === 'text') {
+                        element.placeholder = t[key];
+                    } else {
+                        element.textContent = t[key];
+                    }
+                }
+            }
+            
+            // 更新表單按鈕文字（如果正在編輯）
+            const submitBtn = document.getElementById('btn-submit');
+            if (submitBtn && submitBtn.textContent.includes('更新')) {
+                submitBtn.textContent = '更新地點';
+            }
+        }
+        
+        function getTranslation(key) {
+            return translations[mapSettings.language] ? 
+                   translations[mapSettings.language][key] : 
+                   translations['zh-TW'][key];
+        }
+        
+        // ==================== 團隊成員顯示 ====================
+        function updateTeamDisplay() {
+            const teamGrid = document.getElementById('team-grid');
+            if (!teamGrid) return;
+            
+            teamGrid.innerHTML = '';
+            
+            teamMembers.forEach(member => {
+                const memberElement = document.createElement('div');
+                memberElement.className = 'team-member';
+                memberElement.innerHTML = `
+                    <div class="member-avatar" style="background: ${member.color}">${member.name.charAt(0)}</div>
+                    <div class="member-name">${getTranslation(`member${member.id}-name`)}</div>
+                    <div class="member-role">${getTranslation(`member${member.id}-role`)}</div>
+                    <div class="member-tasks">${getTranslation(`member${member.id}-tasks`)}</div>
+                `;
+                teamGrid.appendChild(memberElement);
+            });
+            
+            // 更新統計
+            document.getElementById('total-members').textContent = teamMembers.length;
+            document.getElementById('total-tasks').textContent = teamMembers.reduce((sum, member) => sum + member.tasks.split('、').length, 0);
+        }
+        
+        // ==================== 頁籤切換功能 ====================
+        function switchTab(tabName) {
+            // 更新頁籤按鈕狀態
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 顯示對應的內容
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // 如果離開新增頁籤，關閉座標拾取器
+            if (tabName !== 'add') {
+                disableCoordinatePicker();
+                const pickerToggle = document.getElementById('coordinatePickerToggle');
+                if (pickerToggle) pickerToggle.checked = false;
+            }
+            
+            // 如果切換到分工名單頁籤，更新團隊顯示
+            if (tabName === 'team') {
+                updateTeamDisplay();
+            }
+            
+            // 如果切換到系統資訊頁籤，更新內容
+            if (tabName === 'info') {
+                updateSystemInfo();
+            }
+        }
+        
+        // ==================== 繪製路徑功能 ====================
+        function startDrawing() {
+            isDrawingMode = true;
+            enableDrawingMode();
+            document.getElementById('quick-drawing').classList.add('active');
+            alert(getTranslation('drawing-started'));
+        }
+        
+        function enableDrawingMode() {
+            mapDrawingHandler = function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                addDrawingPoint(lat, lng);
+            };
+            
+            map.on('click', mapDrawingHandler);
+            document.querySelector('.map-section').classList.add('picker-mode-active');
+        }
+        
+        function addDrawingPoint(lat, lng) {
+            drawingPoints.push({ lat, lng });
+            
+            // 在地圖上添加標記
+            const marker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: '<div style="background-color: #9b59b6; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>',
+                    className: 'drawing-marker',
+                    iconSize: [19, 19],
+                    iconAnchor: [9, 9]
+                })
+            }).addTo(map);
+            drawingMarkers.push(marker);
+            
+            // 更新繪製點列表
+            updateDrawingPointList();
+            
+            // 如果有多個點，繪製線條
+            if (drawingPoints.length > 1) {
+                updateDrawingLine();
+            }
+            
+            // 更新路徑預覽面板
+            updatePathPreviewPanel();
+            
+            // 保存到本地儲存
+            saveToLocalStorage();
+        }
+        
+        function finishDrawing() {
+            if (drawingPoints.length < 2) {
+                alert(getTranslation('drawing-need-more'));
+                return;
+            }
+            
+            alert(getTranslation('drawing-finished'));
+            
+            // 關閉繪製模式
+            isDrawingMode = false;
+            disableDrawingMode();
+            document.getElementById('quick-drawing').classList.remove('active');
+        }
+        
+        function disableDrawingMode() {
+            if (mapDrawingHandler) {
+                map.off('click', mapDrawingHandler);
+                mapDrawingHandler = null;
+            }
+            
+            document.querySelector('.map-section').classList.remove('picker-mode-active');
+        }
+        
+        function convertDrawingPointsToLocations() {
+            if (drawingPoints.length === 0) {
+                alert('沒有可轉換的繪製點');
+                return;
+            }
+            
+            if (confirm(getTranslation('convert-confirm'))) {
+                // 計算新地點的起始ID
+                const maxId = locations.length > 0 ? Math.max(...locations.map(loc => loc.id)) : 0;
+                
+                // 將繪製點轉換為地點
+                drawingPoints.forEach((point, index) => {
+                    const newId = maxId + index + 1;
+                    const newLocation = {
+                        id: newId,
+                        name: `${getTranslation('drawing-title')} ${index + 1}`,
+                        lat: point.lat,
+                        lng: point.lng,
+                        date: new Date().toISOString().split('T')[0],
+                        image: 'https://images.unsplash.com/photo-1552465011-b4e30bf7349d?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80',
+                        description: `${getTranslation('drawing-desc')} #${index + 1}`,
+                        color: '#9b59b6'
+                    };
+                    
+                    locations.push(newLocation);
+                    addMarkerToMap(newLocation);
+                });
+                
+                // 重新繪製路徑並更新清單
+                drawPath();
+                updateLocationList();
+                saveToLocalStorage();
+                
+                // 顯示成功訊息
+                const successMsg = getTranslation('convert-success').replace('{count}', drawingPoints.length);
+                alert(successMsg);
+                
+                // 清除繪製點
+                clearDrawing();
+            }
+        }
+        
+        function clearDrawing() {
+            // 清除繪製標記
+            drawingMarkers.forEach(marker => {
+                map.removeLayer(marker);
+            });
+            drawingMarkers = [];
+            
+            // 清除繪製線條
+            if (drawingLine) {
+                map.removeLayer(drawingLine);
+                drawingLine = null;
+            }
+            
+            // 清空繪製點陣列
+            drawingPoints = [];
+            
+            // 更新繪製點列表
+            updateDrawingPointList();
+            
+            // 關閉繪製模式
+            isDrawingMode = false;
+            disableDrawingMode();
+            document.getElementById('quick-drawing').classList.remove('active');
+            
+            // 更新路徑預覽面板
+            updatePathPreviewPanel();
+            
+            alert(getTranslation('drawing-cleared'));
+        }
+        
+        function updateDrawingLine() {
+            // 清除現有的繪製線條
+            if (drawingLine) {
+                map.removeLayer(drawingLine);
+            }
+            
+            // 創建新的線條
+            const coordinates = drawingPoints.map(point => [point.lat, point.lng]);
+            drawingLine = L.polyline(coordinates, {
+                color: '#9b59b6',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '5, 5'
+            }).addTo(map);
+        }
+        
+        function updateDrawingPointList() {
+            const pointList = document.getElementById('drawingPointList');
+            if (!pointList) return;
+            
+            pointList.innerHTML = '';
+            
+            if (drawingPoints.length === 0) {
+                pointList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 10px;">尚未添加任何點</p>';
+                return;
+            }
+            
+            drawingPoints.forEach((point, index) => {
+                const pointItem = document.createElement('div');
+                pointItem.className = 'drawing-point-item';
+                
+                pointItem.innerHTML = `
+                    <div style="flex: 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>點 ${index + 1}</strong>
+                            <button class="action-btn delete-btn btn-small" onclick="removeDrawingPoint(${index})">刪除</button>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #7f8c8d; margin-top: 3px;">
+                            座標: ${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}
+                        </div>
+                    </div>
+                `;
+                
+                pointList.appendChild(pointItem);
+            });
+        }
+        
+        function removeDrawingPoint(index) {
+            if (index >= 0 && index < drawingPoints.length) {
+                // 移除標記
+                if (drawingMarkers[index]) {
+                    map.removeLayer(drawingMarkers[index]);
+                    drawingMarkers.splice(index, 1);
+                }
+                
+                // 移除點
+                drawingPoints.splice(index, 1);
+                
+                // 更新線條
+                if (drawingPoints.length > 1) {
+                    updateDrawingLine();
+                } else if (drawingPoints.length <= 1) {
+                    if (drawingLine) {
+                        map.removeLayer(drawingLine);
+                        drawingLine = null;
+                    }
+                }
+                
+                // 更新列表
+                updateDrawingPointList();
+                
+                // 更新路徑預覽面板
+                updatePathPreviewPanel();
+                
+                // 保存更改
+                saveToLocalStorage();
+            }
+        }
+        
+        function toggleDrawingMode() {
+            if (isDrawingMode) {
+                finishDrawing();
+            } else {
+                startDrawing();
+            }
+        }
+        
+        // ==================== 批量操作功能 ====================
+        function addAllLocationsToPath() {
+            if (locations.length === 0) {
+                alert('暫無地點可加入');
+                return;
+            }
+            
+            let addedCount = 0;
+            locations.forEach(location => {
+                addDrawingPoint(location.lat, location.lng);
+                addedCount++;
+            });
+            
+            if (addedCount > 0) {
+                alert(getTranslation('all-locations-added'));
+            }
+        }
+        
+        function reversePath() {
+            if (drawingPoints.length < 2) {
+                alert('路徑點不足，無法反轉');
+                return;
+            }
+            
+            // 反轉繪製點陣列
+            drawingPoints.reverse();
+            
+            // 反轉繪製標記陣列
+            drawingMarkers.reverse();
+            
+            // 更新列表和線條
+            updateDrawingPointList();
+            updateDrawingLine();
+            
+            // 保存更改
+            saveToLocalStorage();
+            
+            alert(getTranslation('path-reversed'));
+        }
+        
+        // ==================== 路徑數據導出功能 ====================
+        function exportPathData(format = 'gpx') {
+            if (drawingPoints.length < 2) {
+                alert('請先繪製至少兩個點的路径');
+                return;
+            }
+            
+            let data = '';
+            let filename = '';
+            let contentType = '';
+            
+            switch(format) {
+                case 'gpx':
+                    data = generateGPX(drawingPoints);
+                    filename = `path_${new Date().getTime()}.gpx`;
+                    contentType = 'application/gpx+xml';
+                    break;
+                case 'kml':
+                    data = generateKML(drawingPoints);
+                    filename = `path_${new Date().getTime()}.kml`;
+                    contentType = 'application/vnd.google-earth.kml+xml';
+                    break;
+                case 'geojson':
+                    data = generateGeoJSON(drawingPoints);
+                    filename = `path_${new Date().getTime()}.geojson`;
+                    contentType = 'application/geo+json';
+                    break;
+                default:
+                    data = JSON.stringify(drawingPoints, null, 2);
+                    filename = `path_${new Date().getTime()}.json`;
+                    contentType = 'application/json';
+            }
+            
+            downloadFile(data, filename, contentType);
+            alert(getTranslation('export-success'));
+        }
+        
+        function generateGPX(points) {
+            let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="團結小隊電子地圖" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>自定義路徑</name>
+    <desc>由團結小隊電子地圖生成</desc>
+    <trkseg>`;
+            
+            points.forEach(point => {
+                gpx += `
+      <trkpt lat="${point.lat}" lon="${point.lng}">
+        <ele>0</ele>
+        <time>${new Date().toISOString()}</time>
+      </trkpt>`;
+            });
+            
+            gpx += `
+    </trkseg>
+  </trk>
+</gpx>`;
+            
+            return gpx;
+        }
+        
+        function generateKML(points) {
+            let kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>自定義路徑</name>
+    <description>由團結小隊電子地圖生成</description>
+    <Placemark>
+      <LineString>
+        <extrude>1</extrude>
+        <tessellate>1</tessellate>
+        <coordinates>`;
+            
+            points.forEach(point => {
+                kml += `${point.lng},${point.lat},0 `;
+            });
+            
+            kml += `</coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`;
+            
+            return kml;
+        }
+        
+        function generateGeoJSON(points) {
+            const geojson = {
+                type: "FeatureCollection",
+                features: [{
+                    type: "Feature",
+                    geometry: {
+                        type: "LineString",
+                        coordinates: points.map(p => [p.lng, p.lat])
+                    },
+                    properties: {
+                        name: "自定義路徑",
+                        created: new Date().toISOString(),
+                        points: points.length,
+                        creator: "團結小隊電子地圖"
+                    }
+                }]
+            };
+            
+            return JSON.stringify(geojson, null, 2);
+        }
+        
+        function downloadFile(content, filename, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // ==================== 路徑預覽面板功能 ====================
+        function togglePathPreviewPanel() {
+            const panel = document.getElementById('pathPreviewPanel');
+            if (panel) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                if (panel.style.display === 'block') {
+                    updatePathPreviewPanel();
+                }
+            }
+        }
+        
+        function updatePathPreviewPanel() {
+            const statsPanel = document.getElementById('pathPreviewStats');
+            
+            if (!statsPanel) return;
+            
+            // 更新路徑統計
+            statsPanel.innerHTML = '';
+            
+            const stats = [
+                { value: drawingPoints.length, label: '總點數' },
+                { value: calculatePathLength().toFixed(2), label: '路徑長度(km)' }
+            ];
+            
+            stats.forEach(stat => {
+                const statElement = document.createElement('div');
+                statElement.className = 'path-preview-stat';
+                statElement.innerHTML = `
+                    <div class="path-preview-stat-value">${stat.value}</div>
+                    <div class="path-preview-stat-label">${stat.label}</div>
+                `;
+                statsPanel.appendChild(statElement);
+            });
+        }
+        
+        function calculatePathLength() {
+            if (drawingPoints.length < 2) return 0;
+            
+            let totalDistance = 0;
+            for (let i = 0; i < drawingPoints.length - 1; i++) {
+                const point1 = drawingPoints[i];
+                const point2 = drawingPoints[i + 1];
+                
+                const R = 6371; // 地球半徑，單位：公里
+                const dLat = (point2.lat - point1.lat) * Math.PI / 180;
+                const dLon = (point2.lng - point1.lng) * Math.PI / 180;
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(point1.lat * Math.PI / 180) * Math.cos(point2.lat * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distance = R * c;
+                
+                totalDistance += distance;
+            }
+            
+            return totalDistance;
+        }
+        
+        // ==================== 導出選項功能 ====================
+        function toggleExportOptions() {
+            const exportOptions = document.getElementById('exportOptions');
+            if (exportOptions) {
+                exportOptions.classList.toggle('show');
+            }
+        }
+        
+        // ==================== 系統資訊更新 ====================
+        function updateSystemInfo() {
+            const statLocations = document.getElementById('stat-locations');
+            if (statLocations) {
+                statLocations.textContent = locations.length;
+            }
+        }
+        
+        // ==================== 設定功能 ====================
+        function applyAllSettings() {
+            alert(getTranslation('settings-applied'));
+            saveSettings();
+        }
+        
+        function resetAllSettings() {
+            if (confirm(getTranslation('confirm-reset'))) {
+                mapSettings = {
+                    language: 'zh-TW',
+                    theme: 'light'
+                };
+                
+                updateInterfaceText('zh-TW');
+                updateTeamDisplay();
+                saveSettings();
+                
+                alert(getTranslation('settings-reset'));
+            }
+        }
+        
+        function saveSettings() {
+            localStorage.setItem('myTravelMapSettings', JSON.stringify(mapSettings));
+        }
+        
+        // ==================== 教學功能 ====================
+        function showTutorial() {
+            const tutorialPanel = document.getElementById('tutorialPanel');
+            const overlay = document.getElementById('tutorialOverlay');
+            
+            // 創建教學內容
+            createTutorialContent();
+            
+            // 顯示教學面板和遮罩
+            tutorialPanel.style.display = 'block';
+            overlay.style.display = 'block';
+        }
+        
+        function createTutorialContent() {
+            const tutorialContent = document.getElementById('tutorial-content');
+            const t = translations[mapSettings.language] || translations['zh-TW'];
+            
+            tutorialContent.innerHTML = `
+                <div style="padding: 20px;">
+                    <h3 style="margin-bottom: 15px; color: var(--primary-color);">${t['tutorial-title']}</h3>
+                    
+                    <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+                        <h4 style="color: var(--accent-color); margin-bottom: 10px;">${t['tutorial-step1-title']}</h4>
+                        <p style="line-height: 1.6;">${t['tutorial-step1-desc']}</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+                        <h4 style="color: var(--accent-color); margin-bottom: 10px;">${t['tutorial-step2-title']}</h4>
+                        <p style="line-height: 1.6;">${t['tutorial-step2-desc']}</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+                        <h4 style="color: var(--accent-color); margin-bottom: 10px;">${t['tutorial-step3-title']}</h4>
+                        <p style="line-height: 1.6;">${t['tutorial-step3-desc']}</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+                        <h4 style="color: var(--accent-color); margin-bottom: 10px;">${t['tutorial-step4-title']}</h4>
+                        <p style="line-height: 1.6;">${t['tutorial-step4-desc']}</p>
+                    </div>
+                    
+                    <div>
+                        <h4 style="color: var(--accent-color); margin-bottom: 10px;">${t['tutorial-step5-title']}</h4>
+                        <p style="line-height: 1.6;">${t['tutorial-step5-desc']}</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function closeTutorial() {
+            document.getElementById('tutorialPanel').style.display = 'none';
+            document.getElementById('tutorialOverlay').style.display = 'none';
+        }
+        
+        // ==================== 儲存與載入 ====================
+        function saveToLocalStorage() {
+            try {
+                const saveData = {
+                    locations: locations,
+                    drawingPoints: drawingPoints,
+                    timestamp: new Date().getTime(),
+                    version: '2.0.0'
+                };
+                
+                // 使用壓縮減少儲存空間
+                const compressedData = LZString.compressToUTF16(JSON.stringify(saveData));
+                localStorage.setItem('myTravelMapData', compressedData);
+                
+                // 保存設定
+                localStorage.setItem('myTravelMapSettings', JSON.stringify(mapSettings));
+                
+                // 添加版本控制
+                localStorage.setItem('myTravelMapVersion', '2.0.0');
+                localStorage.setItem('myTravelMapLastSave', new Date().toISOString());
+                
+            } catch (error) {
+                console.error('儲存失敗:', error);
+            }
+        }
+        
+        function loadFromLocalStorage() {
+            try {
+                const savedData = localStorage.getItem('myTravelMapData');
+                const savedSettings = localStorage.getItem('myTravelMapSettings');
+                
+                if (savedData) {
+                    // 解壓縮數據
+                    const decompressedData = LZString.decompressFromUTF16(savedData);
+                    if (decompressedData) {
+                        const parsedData = JSON.parse(decompressedData);
+                        if (Array.isArray(parsedData.locations) && parsedData.locations.length > 0) {
+                            locations = parsedData.locations;
+                        }
+                        if (parsedData.drawingPoints) {
+                            drawingPoints = parsedData.drawingPoints;
+                            // 重新創建繪製點標記
+                            recreateDrawingMarkers();
+                            updateDrawingPointList();
+                            if (drawingPoints.length > 1) {
+                                updateDrawingLine();
+                            }
+                        }
+                    }
+                }
+                
+                if (savedSettings) {
+                    mapSettings = JSON.parse(savedSettings);
+                }
+            } catch (error) {
+                console.error('載入失敗:', error);
+            }
+        }
+        
+        function recreateDrawingMarkers() {
+            // 清除現有的繪製標記
+            drawingMarkers.forEach(marker => {
+                map.removeLayer(marker);
+            });
+            drawingMarkers = [];
+            
+            // 重新創建繪製標記
+            drawingPoints.forEach(point => {
+                const marker = L.marker([point.lat, point.lng], {
+                    icon: L.divIcon({
+                        html: '<div style="background-color: #9b59b6; width: 15px; height: 15px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>',
+                        className: 'drawing-marker',
+                        iconSize: [19, 19],
+                        iconAnchor: [9, 9]
+                    })
+                }).addTo(map);
+                drawingMarkers.push(marker);
+            });
+        }
+        
+        // ==================== 頁面載入時初始化 ====================
+        window.onload = initApp;
+        
+        // 點擊頁面其他區域關閉導出選項
+        document.addEventListener('click', function(event) {
+            const exportOptions = document.getElementById('exportOptions');
+            const quickExport = document.getElementById('quick-export');
+            
+            if (exportOptions && quickExport) {
+                if (!exportOptions.contains(event.target) && !quickExport.contains(event.target)) {
+                    exportOptions.classList.remove('show');
+                }
+            }
+        });
+    </script>
+    
+    <!-- Google Analytics (可選) -->
+    <!-- 
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
+    -->
+</body>
+</html>
